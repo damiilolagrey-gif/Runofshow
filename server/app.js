@@ -39,6 +39,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
 
   app.use(express.json({ limit: '100kb' }));
   app.use(express.static(PUBLIC, { index: false }));
+  app.get('/healthz', (_req, res) => res.json({ ok: true }));
   app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC, 'index.html')));
   app.get('/p/:token', (_req, res) => res.sendFile(path.join(PUBLIC, 'planner.html')));
   app.get('/v/:token', (_req, res) => res.sendFile(path.join(PUBLIC, 'vendor.html')));

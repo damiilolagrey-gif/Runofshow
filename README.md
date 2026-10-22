@@ -15,6 +15,14 @@ npm test
 Needs Node 22.13+ (uses the built-in `node:sqlite`). Copy `.env.example` to set things up;
 everything works without any keys.
 
+## Deploy
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/damiilolagrey-gif/runofshow)
+
+`render.yaml` sets up a Starter web service with a 1 GB disk for the SQLite database and
+push keys. Add the `WHATSAPP_*` variables from `.env.example` in the Render dashboard
+when you have Meta Cloud API access.
+
 ## How it works
 
 - **Create an event** at `/` from a template: Nigerian wedding reception (13 vendors,

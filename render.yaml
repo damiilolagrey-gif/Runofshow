@@ -1,0 +1,18 @@
+# One-click deploy: https://render.com/deploy?repo=https://github.com/damiilolagrey-gif/runofshow
+services:
+  - type: web
+    name: runofshow
+    runtime: node
+    plan: starter          # a persistent disk needs a paid plan; free instances lose the database on restart
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data
