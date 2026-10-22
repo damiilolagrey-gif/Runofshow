@@ -2,11 +2,16 @@
 const path = require('node:path');
 const express = require('express');
 const QRCode = require('qrcode');
-const { HttpError } = require('./store');
+const { HttpError, normalizePhone } = require('./store');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
-function mountSuite(app, { store, guests, asoebi, finance, paystack, io, broadcast }) {
+function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, io, broadcast }) {
+  // Card payment for aso-ebi needs the event's planner to have a payout account, so the money reaches them.
+  const payoutFor = (ev) => {
+    const owner = ev.planner_id && accounts.get(ev.planner_id);
+    return paystack && owner?.subaccount_code ? owner.subaccount_code : null;
+  };
   const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res)).catch(next);
   const page = (file) => (_req, res) => res.sendFile(path.join(PUBLIC, file));
   const num = (req, key = 'id') => Number(req.params[key]);
@@ -51,11 +56,13 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, io, broadca
   // guests
   p.get('/guests', (req, res) => res.json({ guests: guests.list(req.ev.id), stats: guests.stats(req.ev.id) }));
   p.post('/guests', (req, res) => {
+    accounts.assertGuestRoom(req.ev);
     const g = guests.add(req.ev.id, req.body || {});
     res.status(201).json({ id: g.id });
     changed(req.ev.id, 'guests');
   });
   p.post('/guests/import', (req, res) => {
+    accounts.assertGuestRoom(req.ev, String(req.body?.text || '').split(/\r?\n/).filter((l) => l.trim() && !/^\s*name\s*[,\t]/i.test(l)).length);
     const added = guests.import(req.ev.id, req.body?.text);
     store.log(req.ev.id, 'change', `Imported ${added} guests`);
     res.status(201).json({ added });
@@ -79,7 +86,7 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, io, broadca
   });
 
   // aso-ebi
-  p.get('/asoebi', (req, res) => res.json({ items: asoebi.items(req.ev.id), orders: asoebi.orders(req.ev.id), stats: asoebi.stats(req.ev.id), paystack: Boolean(paystack) }));
+  p.get('/asoebi', (req, res) => res.json({ items: asoebi.items(req.ev.id), orders: asoebi.orders(req.ev.id), stats: asoebi.stats(req.ev.id), paystack: Boolean(payoutFor(req.ev)), billing: Boolean(paystack) }));
   p.post('/asoebi/items', (req, res) => {
     res.status(201).json({ id: asoebi.addItem(req.ev.id, req.body || {}) });
     changed(req.ev.id, 'asoebi');
@@ -183,9 +190,10 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, io, broadca
   });
   pub.get('/', (req, res) => res.json({
     event: publicEvent(req.ev), rsvp_open: Boolean(req.ev.rsvp_open), pay_details: req.ev.pay_details,
-    items: asoebi.items(req.ev.id, { activeOnly: true }), paystack: Boolean(paystack),
+    items: asoebi.items(req.ev.id, { activeOnly: true }), paystack: Boolean(payoutFor(req.ev)),
   }));
   pub.post('/rsvp', (req, res) => {
+    if (!guests.db.prepare('SELECT 1 FROM guests WHERE event_id = ? AND phone = ?').get(req.ev.id, normalizePhone(req.body?.phone))) accounts.assertGuestRoom(req.ev);
     const g = guests.publicRsvp(req.ev, req.body || {});
     res.status(201).json({ invite_url: `/i/${g.token}` });
     changed(req.ev.id, 'guests');
@@ -194,9 +202,10 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, io, broadca
     const order = asoebi.placeOrder(req.ev, req.body || {});
     changed(req.ev.id, 'asoebi');
     let pay_url = null;
-    if (paystack && req.body?.pay === 'card') {
+    const subaccount = payoutFor(req.ev);
+    if (subaccount && req.body?.pay === 'card') {
       if (!/^\S+@\S+\.\S+$/.test(req.body.email || '')) throw new HttpError(400, 'Enter your email to pay by card');
-      pay_url = await paystack.checkout(order, { email: req.body.email, callbackUrl: `${origin(req)}/api/o/${order.token}/paystack` });
+      pay_url = await paystack.checkout(order, { email: req.body.email, callbackUrl: `${origin(req)}/api/o/${order.token}/paystack`, subaccount });
     }
     res.status(201).json({ order_url: `/o/${order.token}`, pay_url });
   }));
@@ -209,15 +218,16 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, io, broadca
     if (!o) return next(new HttpError(404, 'Order not found'));
     const ev = store.event(o.event_id);
     const { token: _t, event_id: _e, ...order } = o;
-    res.json({ event: publicEvent(ev), order, pay_details: ev.pay_details, paystack: Boolean(paystack) });
+    res.json({ event: publicEvent(ev), order, pay_details: ev.pay_details, paystack: Boolean(payoutFor(ev)) });
   });
   app.post('/api/o/:token/pay', wrap(async (req, res) => {
     const o = asoebi.orderByToken(req.params.token);
     if (!o) throw new HttpError(404, 'Order not found');
-    if (!paystack) throw new HttpError(400, 'Card payment is not available for this event');
+    const subaccount = payoutFor(store.event(o.event_id));
+    if (!subaccount) throw new HttpError(400, 'Card payment is not available for this event');
     if (o.paid_at) throw new HttpError(400, 'This order is already paid');
     if (!/^\S+@\S+\.\S+$/.test(req.body?.email || '')) throw new HttpError(400, 'Enter your email to pay by card');
-    res.json({ pay_url: await paystack.checkout(o, { email: req.body.email, callbackUrl: `${origin(req)}/api/o/${o.token}/paystack` }) });
+    res.json({ pay_url: await paystack.checkout(o, { email: req.body.email, callbackUrl: `${origin(req)}/api/o/${o.token}/paystack`, subaccount }) });
   }));
   app.get('/api/o/:token/paystack', wrap(async (req, res) => {
     const o = asoebi.orderByToken(req.params.token);

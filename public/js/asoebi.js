@@ -5,6 +5,7 @@
 
   function render() {
     const s = data.stats;
+    if (data.billing && !data.paystack) $('share-hint').innerHTML = 'Want buyers to pay by card? Add your payout bank account on <a href="/dashboard">My events</a>. Until then they pay by bank transfer and you mark orders paid.';
     $('s-orders').textContent = s.orders ?? 0;
     $('s-pieces').textContent = s.pieces ?? 0;
     $('s-ordered').textContent = Ros.naira(s.ordered || 0);

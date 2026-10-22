@@ -50,6 +50,14 @@ when you have Meta Cloud API access.
   automatically from linked vendors.
 - **Couple's page** (`/c/<couple-token>`): read-only view of budget, payments, RSVPs,
   aso-ebi and the day's timeline.
+- **Accounts and plans** (`/signup`, `/dashboard`, `/pricing`): planners sign up, see all
+  their events and pay through Paystack. Starter is free (1 upcoming event, 150 guests per
+  event), Pro and Business are monthly or yearly subscriptions, and any single event can be
+  unlocked on its own. Limits apply only once `PAYSTACK_SECRET_KEY` is set. Aso-ebi card
+  payments settle to the planner's own bank (a Paystack subaccount) minus the platform fee.
+  Prices live in env vars (`PRICE_PRO_MONTHLY`, `PRICE_PRO_YEARLY`, `PRICE_BUSINESS_MONTHLY`,
+  `PRICE_BUSINESS_YEARLY`, `PRICE_EVENT`, in kobo; `ASOEBI_FEE_PERCENT`). Point Paystack's
+  webhook at `/api/paystack/webhook` so renewals and cancellations are picked up.
 - **Preview a time**: add `?clock=17:40` to either URL to see the day as it would look then.
 
 The links are the credentials: anyone with the planner link can edit the event, and a
@@ -69,5 +77,5 @@ test/           node:test API and socket tests
 
 ## Not in the MVP yet
 
-Seating charts, planner accounts and billing, venues with multiple planners, editing templates in the UI,
+Seating charts, password reset by email, planner teams and logos, venues with multiple planners, editing templates in the UI,
 SMS fallback, and multi-day events.
