@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your aso-ebi order</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <main class="public-wrap stack">
+    <div class="head"><div class="muted small" style="text-transform:uppercase;letter-spacing:.1em">Aso-ebi order</div><h1 id="ev-name">Loading…</h1></div>
+    <div class="banner change hidden" id="banner"></div>
+    <section class="card card-pad stack">
+      <div class="row"><strong class="grow" id="item"></strong><span class="price" style="font-weight:800" id="amount"></span></div>
+      <div class="muted small" id="who"></div>
+      <div id="status"></div>
+    </section>
+    <section class="card card-pad stack hidden" id="howto">
+      <strong>How to pay</strong>
+      <div id="pay-details" style="white-space:pre-wrap"></div>
+      <div class="muted small">After paying, the planner will confirm and this page will show Paid.</div>
+    </section>
+    <section class="card card-pad stack hidden" id="card-pay">
+      <div class="field"><label for="email">Email for your receipt</label><input id="email" type="email"></div>
+      <button class="btn primary big" id="pay">Pay by card or bank (Paystack)</button>
+    </section>
+  </main>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    (() => {
+      const token = location.pathname.split('/').pop();
+      const $ = (id) => document.getElementById(id);
+      const result = new URLSearchParams(location.search).get('payment');
+      if (result) {
+        $('banner').textContent = result === 'paid' ? 'Payment received. Thank you!' : 'The payment did not go through. You can try again.';
+        $('banner').classList.remove('hidden');
+      }
+      Ros.api('GET', `/api/o/${token}`).then(({ event: e, order: o, pay_details, paystack }) => {
+        document.title = `Aso-ebi · ${e.name}`;
+        $('ev-name').textContent = e.name;
+        $('item').textContent = `${o.qty} × ${o.item_name}${o.option ? ` (${o.option})` : ''}`;
+        $('amount').textContent = Ros.naira(o.amount);
+        $('who').textContent = `For ${o.buyer_name} · ordered ${Ros.fmtDate(o.created_at)}`;
+        $('status').innerHTML = o.collected_at ? '<span class="pill done">Collected</span>' : o.paid_at ? '<span class="pill ok">Paid · ready to collect</span>' : '<span class="pill soon">Waiting for payment</span>';
+        $('howto').classList.toggle('hidden', Boolean(o.paid_at || !pay_details));
+        $('pay-details').textContent = pay_details;
+        $('card-pay').classList.toggle('hidden', Boolean(o.paid_at || !paystack));
+      }).catch((err) => { $('ev-name').textContent = err.status === 404 ? 'Order not found' : 'Could not load'; });
+      $('pay').onclick = async () => {
+        try { location.href = (await Ros.api('POST', `/api/o/${token}/pay`, { email: $('email').value })).pay_url; }
+        catch (err) { Ros.toast(err.message); }
+      };
+    })();
+  </script>
+</body>
+</html>

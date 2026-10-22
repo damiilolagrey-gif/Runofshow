@@ -48,6 +48,17 @@
     }).join('') || '<li class="cue"><div></div><div class="muted">No cues assigned to you yet.</div></li>';
     prevStarts = Object.fromEntries(cues.map((c) => [c.id, c.start_min]));
 
+    const deal = state.deal;
+    $('deal').classList.toggle('hidden', !deal || (!deal.fee && !deal.terms && !deal.payments.length));
+    if (deal) {
+      $('deal-fee').textContent = Ros.naira(deal.fee);
+      $('deal-terms').textContent = deal.terms;
+      $('deal-status').innerHTML = deal.accepted_at ? `<span class="pill ok">Accepted ${Ros.fmtDate(deal.accepted_at)}</span>` : '<span class="pill soon">Please review</span>';
+      $('accept').classList.toggle('hidden', Boolean(deal.accepted_at));
+      $('deal-payments').innerHTML = deal.payments.map((p) => `<li class="row"><span class="grow">${Ros.esc(p.label)} · ${Ros.naira(p.amount)}${p.due_date ? `<div class="muted small">Due ${Ros.fmtDate(p.due_date)}</div>` : ''}</span>
+        ${p.paid_at ? '<span class="pill done">Paid</span>' : '<span class="pill">Not paid yet</span>'}</li>`).join('');
+    }
+
     $('notices-card').classList.toggle('hidden', !state.notices.length);
     $('notices').innerHTML = state.notices.map((n) => `<li><time>${Ros.timeAgo(n.at)}</time>${Ros.esc(n.message.replace(`${event.name}: `, ''))}</li>`).join('');
   }
@@ -109,6 +120,12 @@
     cue.done_at = done ? new Date().toISOString() : null;
     cue.pending = true;
     queue(`/cues/${cue.id}/done`, { done });
+  });
+
+  $('accept').addEventListener('click', async () => {
+    if (!confirm('Accept this agreement? The planner will see that you agreed.')) return;
+    try { await Ros.api('POST', `${base}/accept`); await refresh(); Ros.toast('Thanks! The planner can see you accepted.'); }
+    catch (err) { Ros.toast(navigator.onLine ? err.message : 'You need a connection to accept.'); }
   });
 
   // ---------- notices ----------

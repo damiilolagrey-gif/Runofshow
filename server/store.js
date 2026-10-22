@@ -1,8 +1,7 @@
-const crypto = require('node:crypto');
 const templates = require('./templates');
+const { newToken: token } = require('./db');
 const { fmtTime } = require('../public/js/time');
 
-const token = () => crypto.randomBytes(9).toString('base64url');
 
 // Nigerian local numbers (0803...) become 234803...; anything else keeps its digits.
 function normalizePhone(raw) {
@@ -36,8 +35,8 @@ class Store {
     if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new HttpError(400, 'Name and date (YYYY-MM-DD) are required');
     return this.tx(() => {
       const { lastInsertRowid: eventId } = this.db
-        .prepare('INSERT INTO events (name, type, date, venue, planner_token) VALUES (?, ?, ?, ?, ?)')
-        .run(name, type, date, venue, token());
+        .prepare('INSERT INTO events (name, type, date, venue, planner_token, public_token, gate_token, couple_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+        .run(name, type, date, venue, token(), token(), token(), token());
       const roleToVendor = {};
       for (const v of tpl.vendors) roleToVendor[v.role] = this.insertVendor(eventId, v).id;
       for (const c of tpl.cues) {

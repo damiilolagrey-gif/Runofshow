@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gate · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <main class="public-wrap stack" style="padding-top:12px">
+    <div class="head" style="margin-bottom:4px"><div class="muted small" style="text-transform:uppercase;letter-spacing:.1em">Gate check-in</div><h1 id="ev-name" style="font-size:1.25rem">Loading…</h1></div>
+    <section class="card gate-count"><div class="n" id="count">0</div><div class="muted small" id="count-sub">people in</div></section>
+    <div id="result" class="result hidden" role="status" aria-live="assertive"></div>
+    <div class="scanner hidden" id="scanner"><video id="video" playsinline muted></video><div class="frame"></div></div>
+    <button class="btn primary big" id="scan-btn">📷 Start scanning</button>
+    <section class="card card-pad stack">
+      <label for="manual">No QR? Type the code or search a name</label>
+      <div class="row"><input id="manual" class="grow" placeholder="K7Q2XM or Adeyemi" autocomplete="off" autocapitalize="characters"><button class="btn" id="find">Find</button></div>
+      <ul class="vlist" id="matches"></ul>
+    </section>
+    <div class="banner offline hidden" id="offline">No connection. Scans will fail until the network is back; use the name search when it returns.</div>
+  </main>
+  <canvas id="canvas" class="hidden"></canvas>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/vendor/jsqr.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    /* global jsQR, io */
+    (() => {
+      const token = location.pathname.split('/').pop();
+      const base = `/api/gate/${token}`;
+      const $ = (id) => document.getElementById(id);
+      let stream = null;
+      let lastCode = '';
+      let lastAt = 0;
+      let busy = false;
+
+      async function loadStats() {
+        try {
+          const { event: e, stats: s } = await Ros.api('GET', base);
+          $('ev-name').textContent = e.name;
+          $('count').textContent = s.arrived_people;
+          $('count-sub').textContent = `people in · ${s.yes_people} expected`;
+        } catch (err) { if (err.status === 404) $('ev-name').textContent = 'This gate link is not valid'; }
+      }
+
+      function show(r) {
+        const el = $('result');
+        el.className = `result ${r.result}`;
+        const g = r.guest;
+        if (r.result === 'unknown') {
+          el.innerHTML = '<div class="big">Not on the list</div><div>Check the name with the planner.</div>';
+        } else {
+          const head = r.result === 'admitted' ? `Welcome, ${Ros.esc(g.name)}` : `${Ros.esc(g.name)} is already in`;
+          const sub = r.result === 'admitted'
+            ? `Party of ${g.party_size}${g.side ? ` · ${Ros.esc(g.side)}` : ''}${g.rsvp !== 'yes' ? ' · did not RSVP' : ''}`
+            : `Checked in at ${Ros.timeAgo(g.arrived_at)}. Possible duplicate.`;
+          el.innerHTML = `<div class="big">${head}</div><div>${sub}</div>${g.table_label ? `<div class="table-badge">Table ${Ros.esc(g.table_label)}</div>` : ''}`;
+        }
+        if (navigator.vibrate) navigator.vibrate(r.result === 'admitted' ? 80 : [200, 80, 200]);
+        loadStats();
+      }
+
+      async function submit(code) {
+        if (busy) return;
+        busy = true;
+        try { show(await Ros.api('POST', `${base}/scan`, { code })); }
+        catch (err) { Ros.toast(navigator.onLine ? err.message : 'No connection'); }
+        finally { busy = false; }
+      }
+
+      // Scan a few frames a second; ignore the same code for 4s so one QR isn't read twice.
+      function tick() {
+        if (!stream) return;
+        const v = $('video');
+        if (v.readyState === v.HAVE_ENOUGH_DATA) {
+          const c = $('canvas');
+          const size = Math.min(v.videoWidth, v.videoHeight, 720);
+          c.width = size; c.height = size;
+          const ctx = c.getContext('2d', { willReadFrequently: true });
+          ctx.drawImage(v, (v.videoWidth - size) / 2, (v.videoHeight - size) / 2, size, size, 0, 0, size, size);
+          const hit = jsQR(ctx.getImageData(0, 0, size, size).data, size, size, { inversionAttempts: 'dontInvert' });
+          if (hit && hit.data && (hit.data !== lastCode || Date.now() - lastAt > 4000)) {
+            lastCode = hit.data;
+            lastAt = Date.now();
+            submit(hit.data);
+          }
+        }
+        setTimeout(() => requestAnimationFrame(tick), 180);
+      }
+
+      $('scan-btn').onclick = async () => {
+        if (stream) {
+          stream.getTracks().forEach((t) => t.stop());
+          stream = null;
+          $('scanner').classList.add('hidden');
+          $('scan-btn').textContent = '📷 Start scanning';
+          return;
+        }
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+          $('video').srcObject = stream;
+          await $('video').play();
+          $('scanner').classList.remove('hidden');
+          $('scan-btn').textContent = 'Stop scanning';
+          tick();
+        } catch {
+          Ros.toast('Camera blocked. Allow camera access in your browser, or type the code below.');
+        }
+      };
+
+      async function find() {
+        const q = $('manual').value.trim();
+        if (!q) return;
+        if (/^[A-Za-z0-9]{6}$/.test(q)) {
+          const r = await Ros.api('POST', `${base}/scan`, { code: q }).catch(() => null);
+          if (r && r.result !== 'unknown') { $('matches').innerHTML = ''; $('manual').value = ''; return show(r); }
+        }
+        const list = await Ros.api('GET', `${base}/search?q=${encodeURIComponent(q)}`);
+        $('matches').innerHTML = list.map((g) => `<li data-id="${g.id}"><div><div class="name">${Ros.esc(g.name)}</div>
+          <div class="muted small">Party of ${g.party_size}${g.table_label ? ` · Table ${Ros.esc(g.table_label)}` : ''}${g.rsvp === 'yes' ? '' : g.rsvp === 'no' ? ' · said no' : ' · no RSVP'}</div></div>
+          ${g.arrived_at ? `<span class="pill done">In ${Ros.timeAgo(g.arrived_at)}</span>` : '<button class="btn sm ok" data-admit>Let in</button>'}</li>`).join('') || '<li class="muted">No match</li>';
+      }
+      $('find').onclick = find;
+      $('manual').addEventListener('keydown', (e) => { if (e.key === 'Enter') find(); });
+      $('matches').onclick = async (e) => {
+        const b = e.target.closest('[data-admit]');
+        if (!b) return;
+        show(await Ros.api('POST', `${base}/admit/${b.closest('[data-id]').dataset.id}`));
+        $('matches').innerHTML = '';
+        $('manual').value = '';
+      };
+
+      const socket = io({ auth: { gate: token } });
+      socket.on('changed', (t) => { if (t === 'guests') loadStats(); });
+      socket.on('connect', () => $('offline').classList.add('hidden'));
+      socket.on('disconnect', () => $('offline').classList.remove('hidden'));
+      loadStats();
+      Ros.registerSW();
+    })();
+  </script>
+</body>
+</html>

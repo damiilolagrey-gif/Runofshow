@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const { DatabaseSync } = require('node:sqlite');
@@ -57,11 +58,111 @@ function openDb(file) {
       at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
 
+    CREATE TABLE IF NOT EXISTS guests (
+      id          INTEGER PRIMARY KEY,
+      event_id    INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      phone       TEXT NOT NULL DEFAULT '',
+      party_size  INTEGER NOT NULL DEFAULT 1,
+      side        TEXT NOT NULL DEFAULT '',     -- e.g. Bride, Groom, Family
+      table_label TEXT NOT NULL DEFAULT '',
+      rsvp        TEXT NOT NULL DEFAULT 'pending', -- pending | yes | no
+      rsvp_at     TEXT,
+      token       TEXT NOT NULL UNIQUE,         -- private invite link
+      code        TEXT NOT NULL,                -- short code inside the QR, unique per event
+      arrived_at  TEXT,
+      source      TEXT NOT NULL DEFAULT 'list', -- list | public
+      created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      UNIQUE (event_id, code)
+    );
+
+    CREATE TABLE IF NOT EXISTS asoebi_items (
+      id          INTEGER PRIMARY KEY,
+      event_id    INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      price       INTEGER NOT NULL,             -- kobo
+      options     TEXT NOT NULL DEFAULT '',     -- comma-separated sizes or colours
+      active      INTEGER NOT NULL DEFAULT 1
+    );
+
+    CREATE TABLE IF NOT EXISTS asoebi_orders (
+      id           INTEGER PRIMARY KEY,
+      event_id     INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      item_id      INTEGER NOT NULL REFERENCES asoebi_items(id) ON DELETE RESTRICT,
+      buyer_name   TEXT NOT NULL,
+      phone        TEXT NOT NULL DEFAULT '',
+      option       TEXT NOT NULL DEFAULT '',
+      qty          INTEGER NOT NULL DEFAULT 1,
+      amount       INTEGER NOT NULL,            -- kobo, price * qty at order time
+      token        TEXT NOT NULL UNIQUE,
+      paid_at      TEXT,
+      payment_ref  TEXT,
+      collected_at TEXT,
+      created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS vendor_payments (
+      id        INTEGER PRIMARY KEY,
+      event_id  INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      vendor_id INTEGER NOT NULL REFERENCES vendors(id) ON DELETE CASCADE,
+      label     TEXT NOT NULL,                  -- Deposit, Balance…
+      amount    INTEGER NOT NULL,               -- kobo
+      due_date  TEXT,                           -- YYYY-MM-DD
+      paid_at   TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS budget_lines (
+      id        INTEGER PRIMARY KEY,
+      event_id  INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      category  TEXT NOT NULL,
+      label     TEXT NOT NULL DEFAULT '',
+      planned   INTEGER NOT NULL DEFAULT 0,     -- kobo
+      spent     INTEGER NOT NULL DEFAULT 0,     -- kobo, for costs not tied to a vendor
+      vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL
+    );
+
     CREATE INDEX IF NOT EXISTS cues_event ON cues(event_id, start_min);
+    CREATE INDEX IF NOT EXISTS guests_event ON guests(event_id, name);
+    CREATE INDEX IF NOT EXISTS orders_event ON asoebi_orders(event_id, id);
+    CREATE INDEX IF NOT EXISTS vpay_event ON vendor_payments(event_id, vendor_id);
+    CREATE INDEX IF NOT EXISTS budget_event ON budget_lines(event_id);
     CREATE INDEX IF NOT EXISTS vendors_event ON vendors(event_id);
     CREATE INDEX IF NOT EXISTS activity_event ON activity(event_id, id);
   `);
+  migrate(db);
   return db;
 }
 
-module.exports = { openDb };
+// Columns added after the first release. SQLite can't ADD COLUMN IF NOT EXISTS, so check first.
+function migrate(db) {
+  const addColumns = (table, cols) => {
+    const have = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name));
+    for (const [name, def] of cols) if (!have.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${def}`);
+  };
+  addColumns('events', [
+    ['public_token', 'TEXT'],   // RSVP and aso-ebi links anyone can open
+    ['gate_token', 'TEXT'],     // usher scanner
+    ['couple_token', 'TEXT'],   // couple's read-only view
+    ['rsvp_open', 'INTEGER NOT NULL DEFAULT 1'],
+    ['pay_details', "TEXT NOT NULL DEFAULT ''"], // bank transfer instructions shown to aso-ebi buyers
+  ]);
+  addColumns('vendors', [
+    ['fee', 'INTEGER NOT NULL DEFAULT 0'], // kobo
+    ['terms', "TEXT NOT NULL DEFAULT ''"],
+    ['accepted_at', 'TEXT'],
+  ]);
+  const fill = db.prepare('UPDATE events SET public_token = ?, gate_token = ?, couple_token = ? WHERE id = ?');
+  for (const { id } of db.prepare('SELECT id FROM events WHERE public_token IS NULL').all()) {
+    fill.run(newToken(), newToken(), newToken(), id);
+  }
+  db.exec(`
+    CREATE UNIQUE INDEX IF NOT EXISTS events_public ON events(public_token);
+    CREATE UNIQUE INDEX IF NOT EXISTS events_gate ON events(gate_token);
+    CREATE UNIQUE INDEX IF NOT EXISTS events_couple ON events(couple_token);
+  `);
+}
+
+const newToken = () => crypto.randomBytes(9).toString('base64url');
+
+module.exports = { openDb, newToken };

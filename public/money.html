@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Payments and budget · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="title">
+        <h1 id="ev-name">Loading…</h1>
+        <div class="muted small" id="ev-sub"></div>
+      </div>
+      <nav class="sections" id="sections"></nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="stats five">
+      <div class="card stat"><div class="n" id="t-planned">₦0</div><div class="l">Budget</div></div>
+      <div class="card stat"><div class="n" id="t-committed">₦0</div><div class="l">Committed</div></div>
+      <div class="card stat"><div class="n" id="t-paid">₦0</div><div class="l">Paid so far</div></div>
+      <div class="card stat"><div class="n" id="t-owed">₦0</div><div class="l">Still owed to vendors</div></div>
+      <div class="card stat" id="t-overdue-card"><div class="n" id="t-overdue">₦0</div><div class="l">Overdue</div></div>
+    </section>
+
+    <div class="two-col">
+      <section class="card">
+        <div class="section-head"><h2>Vendor payments</h2><button class="btn sm primary" id="add-pay">+ Payment</button></div>
+        <ul class="vlist" id="vendors"></ul>
+      </section>
+
+      <section class="stack">
+        <div class="card">
+          <div class="section-head"><h2>Coming up</h2></div>
+          <ul class="feed" id="upcoming"></ul>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>Budget</h2><button class="btn sm primary" id="add-line">+ Line</button></div>
+          <div class="tbl-wrap"><table class="tbl">
+            <thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Committed</th><th class="num">Paid</th></tr></thead>
+            <tbody id="lines"></tbody>
+          </table></div>
+          <div class="empty hidden" id="lines-empty">Add budget lines like Venue, Food, Decor, Souvenirs. Link a line to a vendor and it fills in from their fee and payments.</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="deal-dlg"><form method="dialog">
+    <h3 id="deal-title">Agreement</h3>
+    <div class="field"><label for="d-fee">Total fee (₦)</label><input id="d-fee" name="fee" inputmode="decimal" placeholder="500,000"></div>
+    <div class="field"><label for="d-terms">What's agreed</label><textarea id="d-terms" name="terms" rows="6" placeholder="Sound from 2pm to 9pm. Two speakers, one wireless mic, backup generator. 50% deposit, balance 3 days before."></textarea></div>
+    <p class="muted small">The vendor sees this on their page and taps Accept. If you change it later, they're asked to accept again.</p>
+    <div class="foot"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Save</button></div>
+  </form></dialog>
+
+  <dialog id="pay-dlg"><form method="dialog">
+    <h3>Payment</h3>
+    <div class="field"><label for="p-vendor">Vendor</label><select id="p-vendor" name="vendor_id" required></select></div>
+    <div class="grid2 field">
+      <div><label for="p-label">For</label><input id="p-label" name="label" list="pay-labels" placeholder="Deposit"></div>
+      <div><label for="p-amount">Amount (₦)</label><input id="p-amount" name="amount" inputmode="decimal" required placeholder="250,000"></div>
+    </div>
+    <datalist id="pay-labels"><option>Deposit</option><option>Second instalment</option><option>Balance</option><option>Transport</option><option>Overtime</option></datalist>
+    <div class="grid2 field">
+      <div><label for="p-due">Due date</label><input id="p-due" name="due_date" type="date"></div>
+      <div><label class="inline" style="margin-top:28px"><input type="checkbox" name="paid"> Already paid</label></div>
+    </div>
+    <div class="foot">
+      <button class="btn danger ghost" value="delete" formnovalidate>Delete</button><span style="flex:1"></span>
+      <button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Save</button>
+    </div>
+  </form></dialog>
+
+  <dialog id="line-dlg"><form method="dialog">
+    <h3>Budget line</h3>
+    <div class="grid2 field">
+      <div><label for="l-cat">Category</label><input id="l-cat" name="category" required list="cats" placeholder="Food"></div>
+      <div><label for="l-label">Details</label><input id="l-label" name="label" placeholder="Jollof, small chops, drinks"></div>
+    </div>
+    <datalist id="cats"><option>Venue</option><option>Food</option><option>Drinks</option><option>Decor</option><option>Music</option><option>Photo &amp; video</option><option>Attire</option><option>Cake</option><option>Souvenirs</option><option>Security</option><option>Logistics</option><option>Other</option></datalist>
+    <div class="grid2 field">
+      <div><label for="l-planned">Budget (₦)</label><input id="l-planned" name="planned" inputmode="decimal" placeholder="3,500,000"></div>
+      <div><label for="l-vendor">Paid to vendor</label><select id="l-vendor" name="vendor_id"></select></div>
+    </div>
+    <div class="field" id="l-spent-field"><label for="l-spent">Spent so far (₦)</label><input id="l-spent" name="spent" inputmode="decimal" placeholder="0"></div>
+    <div class="foot">
+      <button class="btn danger ghost" value="delete" formnovalidate>Delete</button><span style="flex:1"></span>
+      <button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Save</button>
+    </div>
+  </form></dialog>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/section.js"></script>
+  <script src="/js/money.js"></script>
+</body>
+</html>
