@@ -6,7 +6,7 @@ const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const { server, notifier } = createApp({
   dbFile: path.join(dataDir, 'runofshow.db'),
   dataDir,
-  baseUrl: process.env.BASE_URL || `http://localhost:${PORT}`,
+  baseUrl: process.env.BASE_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`,
 });
 
 server.listen(PORT, () => {
