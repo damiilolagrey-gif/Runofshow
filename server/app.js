@@ -8,6 +8,10 @@ const { openDb } = require('./db');
 const { Store, HttpError } = require('./store');
 const { Notifier } = require('./notify');
 const templates = require('./templates');
+const { Guests } = require('./guests');
+const { AsoEbi, Finance } = require('./money');
+const { Paystack } = require('./paystack');
+const { mountSuite } = require('./suite');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
@@ -30,14 +34,20 @@ function whatsappConfig() {
   return { token: WHATSAPP_TOKEN, phoneNumberId: WHATSAPP_PHONE_NUMBER_ID, template: WHATSAPP_TEMPLATE, lang: WHATSAPP_TEMPLATE_LANG };
 }
 
-function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://localhost:3000', vapid = loadVapid(dataDir), whatsapp = whatsappConfig(), fetchImpl } = {}) {
+function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://localhost:3000', vapid = loadVapid(dataDir), whatsapp = whatsappConfig(),
+  paystackKey = process.env.PAYSTACK_SECRET_KEY, fetchImpl } = {}) {
   const store = new Store(openDb(dbFile));
+  const guests = new Guests(store);
+  const asoebi = new AsoEbi(store);
+  const finance = new Finance(store);
+  const paystack = paystackKey ? new Paystack(paystackKey, fetchImpl) : null;
   const notifier = new Notifier(store, { vapid, whatsapp, baseUrl, fetchImpl });
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server);
 
-  app.use(express.json({ limit: '100kb' }));
+  app.set('trust proxy', 1);
+  app.use(express.json({ limit: '300kb' })); // guest imports can be a few hundred lines
   app.use(express.static(PUBLIC, { index: false }));
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
   app.get('/', (_req, res) => res.sendFile(path.join(PUBLIC, 'index.html')));
@@ -48,8 +58,14 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
 
   function broadcast(eventId) {
     io.to(`planner:${eventId}`).emit('state', store.plannerView(eventId));
-    for (const v of store.vendors(eventId)) io.to(`vendor:${v.id}`).emit('state', store.vendorView(v.id));
+    for (const v of store.vendors(eventId)) io.to(`vendor:${v.id}`).emit('state', vendorView(v.id));
   }
+
+  const vendorView = (vendorId) => {
+    const view = store.vendorView(vendorId);
+    const v = store.vendor(vendorId);
+    return { ...view, deal: { fee: v.fee, terms: v.terms, accepted_at: v.accepted_at, payments: finance.payments(v.event_id, v.id) } };
+  };
 
   // Broadcast the change at once, then again after notifications are logged.
   async function afterChange(eventId, messages = []) {
@@ -72,7 +88,12 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
       const v = store.vendorByToken(vendor);
       if (!v) return socket.disconnect(true);
       socket.join(`vendor:${v.id}`);
-      socket.emit('state', store.vendorView(v.id));
+      socket.emit('state', vendorView(v.id));
+    } else if (socket.handshake.auth?.couple || socket.handshake.auth?.gate) {
+      const { couple, gate } = socket.handshake.auth;
+      const ev = store.db.prepare(`SELECT id FROM events WHERE ${couple ? 'couple_token' : 'gate_token'} = ?`).get(couple || gate);
+      if (!ev) return socket.disconnect(true);
+      socket.join(`${couple ? 'couple' : 'gate'}:${ev.id}`);
     } else {
       socket.disconnect(true);
     }
@@ -158,7 +179,13 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     req.vendor = store.vendorByToken(req.params.token);
     next(req.vendor ? undefined : new HttpError(404, 'Link not found'));
   });
-  vendorApi.get('/', (req, res) => res.json(store.vendorView(req.vendor.id)));
+  vendorApi.get('/', (req, res) => res.json(vendorView(req.vendor.id)));
+  vendorApi.post('/accept', wrap(async (req, res) => {
+    if (finance.accept(req.vendor)) store.log(req.vendor.event_id, 'change', `${req.vendor.name} accepted their agreement`, req.vendor.id);
+    res.json({ ok: true });
+    await afterChange(req.vendor.event_id);
+    io.to(`planner:${req.vendor.event_id}`).emit('changed', 'money');
+  }));
   vendorApi.post('/checkin', wrap(async (req, res) => {
     store.checkIn(req.vendor);
     res.json({ ok: true });
@@ -178,13 +205,15 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   }));
   app.use('/api/v/:token', vendorApi);
 
+  mountSuite(app, { store, guests, asoebi, finance, paystack, io, broadcast: async (eventId) => broadcast(eventId) });
+
   app.use((err, _req, res, _next) => {
     const status = err.status || (err.type === 'entity.parse.failed' ? 400 : 500);
     if (status === 500) console.error(err);
     if (!res.headersSent) res.status(status).json({ error: status === 500 ? 'Something went wrong' : err.message });
   });
 
-  return { app, server, io, store, notifier };
+  return { app, server, io, store, notifier, guests, asoebi, finance };
 }
 
 module.exports = { createApp };

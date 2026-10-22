@@ -40,6 +40,16 @@
       <ol class="cues mycues" id="cues"></ol>
     </section>
 
+    <section class="card hidden" id="deal">
+      <div class="section-head"><h2>Your agreement</h2><span id="deal-status"></span></div>
+      <div class="card-pad stack">
+        <div class="row"><span class="grow muted">Total fee</span><strong id="deal-fee"></strong></div>
+        <div id="deal-terms" style="white-space:pre-wrap"></div>
+        <button class="btn primary big hidden" id="accept">I accept this agreement</button>
+        <ul class="feed" id="deal-payments" style="margin:0 -16px -16px"></ul>
+      </div>
+    </section>
+
     <section class="card hidden" id="notices-card">
       <div class="section-head"><h2>Changes sent to you</h2></div>
       <ul class="feed" id="notices"></ul>

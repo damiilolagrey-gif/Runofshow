@@ -1,4 +1,4 @@
-/* global Ros, io */
+/* global Ros, RosNav, io */
 (() => {
   const token = location.pathname.split('/').pop();
   const base = `/api/p/${token}`;
@@ -264,5 +264,6 @@
   if (!state) Ros.api('GET', base).then((s) => { state = s; render(); }).catch((err) => { $('ev-name').textContent = err.status === 404 ? 'Event not found' : 'Could not load'; });
   render();
   setInterval(render, 20000);
+  RosNav.mount('');
   Ros.registerSW();
 })();

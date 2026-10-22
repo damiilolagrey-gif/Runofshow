@@ -1,8 +1,8 @@
 // App shell cache so vendor pages open with no signal, plus push notifications.
-const CACHE = 'ros-v1';
+const CACHE = 'ros-v2';
 const SHELL = [
   '/', '/index.html', '/planner.html', '/vendor.html', '/css/app.css',
-  '/js/time.js', '/js/common.js', '/js/planner.js', '/js/vendor.js',
+  '/invite.html', '/gate.html', '/js/time.js', '/js/common.js', '/js/planner.js', '/js/vendor.js', '/vendor/jsqr.js',
   '/socket.io/socket.io.js', '/manifest.webmanifest', '/icon.svg',
 ];
 
@@ -20,7 +20,8 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/api/') || (url.pathname.startsWith('/socket.io/') && url.pathname !== '/socket.io/socket.io.js')) return;
 
   if (e.request.mode === 'navigate') {
-    const page = url.pathname.startsWith('/v/') ? '/vendor.html' : url.pathname.startsWith('/p/') ? '/planner.html' : '/index.html';
+    const pages = { v: '/vendor.html', p: '/planner.html', i: '/invite.html', gate: '/gate.html' };
+    const page = pages[url.pathname.split('/')[1]] || '/index.html';
     e.respondWith(fetch(e.request).catch(() => caches.match(page)));
     return;
   }

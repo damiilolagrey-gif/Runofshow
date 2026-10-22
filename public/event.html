@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RSVP and aso-ebi</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <main class="public-wrap stack">
+    <div class="head">
+      <h1 id="ev-name">Loading…</h1>
+      <div class="muted" id="ev-when"></div>
+    </div>
+    <div class="segmented" id="tabs">
+      <button class="btn" data-tab="rsvp" aria-pressed="true">RSVP</button>
+      <button class="btn" data-tab="shop" aria-pressed="false">Aso-ebi</button>
+    </div>
+
+    <section id="rsvp" class="card card-pad">
+      <form id="rsvp-form" class="stack">
+        <div class="field"><label for="r-name">Your name</label><input id="r-name" name="name" required placeholder="Mrs Funmi Adebayo"></div>
+        <div class="field"><label for="r-phone">WhatsApp number</label><input id="r-phone" name="phone" required inputmode="tel" placeholder="0803 123 4567"></div>
+        <div class="field"><label for="r-party">How many people (including you)?</label><input id="r-party" name="party_size" type="number" min="1" max="20" value="1"></div>
+        <button class="btn primary big" type="submit">I'll be there</button>
+        <p class="muted small" style="margin:0">You'll get your entry QR code straight away.</p>
+      </form>
+      <div class="hidden muted" id="rsvp-closed">RSVPs are closed for this event. Please contact the family.</div>
+    </section>
+
+    <section id="shop" class="stack hidden">
+      <div id="items" class="stack"></div>
+      <div class="card card-pad muted hidden" id="no-items">Nothing on sale yet. Check back soon.</div>
+    </section>
+  </main>
+
+  <dialog id="order-dlg"><form method="dialog" id="order-form">
+    <h3 id="o-title">Order</h3>
+    <div class="field hidden" id="o-opt-field"><label for="o-option">Size / colour</label><select id="o-option" name="option"></select></div>
+    <div class="grid2 field">
+      <div><label for="o-qty">How many</label><input id="o-qty" name="qty" type="number" min="1" max="50" value="1"></div>
+      <div><label>Total</label><div style="font-weight:800;font-size:1.2rem;padding-top:6px" id="o-total"></div></div>
+    </div>
+    <div class="field"><label for="o-name">Your name</label><input id="o-name" name="buyer_name" required></div>
+    <div class="field"><label for="o-phone">WhatsApp number</label><input id="o-phone" name="phone" required inputmode="tel"></div>
+    <div class="field hidden" id="o-pay-field"><label>Pay with</label>
+      <div class="segmented"><button class="btn" type="button" data-pay="card" aria-pressed="true">Card / bank (Paystack)</button><button class="btn" type="button" data-pay="transfer" aria-pressed="false">Bank transfer</button></div>
+    </div>
+    <div class="field hidden" id="o-email-field"><label for="o-email">Email for your receipt</label><input id="o-email" name="email" type="email"></div>
+    <div class="foot"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save" id="o-submit">Place order</button></div>
+  </form></dialog>
+
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    (() => {
+      const token = location.pathname.split('/').pop();
+      const $ = (id) => document.getElementById(id);
+      let data = null;
+      let item = null;
+      let pay = 'card';
+
+      function showTab(tab) {
+        document.querySelectorAll('#tabs [data-tab]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.tab === tab)));
+        $('rsvp').classList.toggle('hidden', tab !== 'rsvp');
+        $('shop').classList.toggle('hidden', tab !== 'shop');
+        history.replaceState(null, '', tab === 'shop' ? '#asoebi' : location.pathname);
+      }
+      $('tabs').onclick = (e) => { const b = e.target.closest('[data-tab]'); if (b) showTab(b.dataset.tab); };
+
+      Ros.api('GET', `/api/e/${token}`).then((d) => {
+        data = d;
+        document.title = d.event.name;
+        $('ev-name').textContent = d.event.name;
+        $('ev-when').textContent = [Ros.fmtDate(d.event.date), d.event.venue].filter(Boolean).join(' · ');
+        $('rsvp-form').classList.toggle('hidden', !d.rsvp_open);
+        $('rsvp-closed').classList.toggle('hidden', d.rsvp_open);
+        $('no-items').classList.toggle('hidden', d.items.length > 0);
+        $('items').innerHTML = d.items.map((it) => `<div class="card item-card stack" data-id="${it.id}">
+          <div class="row"><strong class="grow">${Ros.esc(it.name)}</strong><span class="price">${Ros.naira(it.price)}</span></div>
+          ${it.description ? `<div class="muted small" style="white-space:pre-wrap">${Ros.esc(it.description)}</div>` : ''}
+          ${it.options ? `<div class="small muted">${Ros.esc(it.options.split(',').join(' · '))}</div>` : ''}
+          <button class="btn primary" data-order>Order</button></div>`).join('');
+        if (location.hash === '#asoebi') showTab('shop');
+      }).catch((err) => { $('ev-name').textContent = err.status === 404 ? 'Event not found' : 'Could not load'; });
+
+      $('rsvp-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try {
+          const { invite_url } = await Ros.api('POST', `/api/e/${token}/rsvp`, Object.fromEntries(new FormData(e.target)));
+          location.href = invite_url;
+        } catch (err) { Ros.toast(err.message); }
+      });
+
+      const dlg = $('order-dlg');
+      const form = $('order-form');
+      const total = () => { $('o-total').textContent = Ros.naira(item.price * Math.max(1, Number(form.qty.value) || 1)); };
+      function setPay(p) {
+        pay = p;
+        form.querySelectorAll('[data-pay]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pay === p)));
+        $('o-email-field').classList.toggle('hidden', !(data.paystack && p === 'card'));
+        form.email.required = Boolean(data.paystack && p === 'card');
+      }
+      $('items').onclick = (e) => {
+        const b = e.target.closest('[data-order]');
+        if (!b) return;
+        item = data.items.find((x) => x.id === Number(b.closest('[data-id]').dataset.id));
+        $('o-title').textContent = item.name;
+        const opts = item.options ? item.options.split(',') : [];
+        $('o-opt-field').classList.toggle('hidden', !opts.length);
+        form.option.innerHTML = opts.map((o) => `<option>${Ros.esc(o)}</option>`).join('');
+        $('o-pay-field').classList.toggle('hidden', !data.paystack);
+        setPay(data.paystack ? 'card' : 'transfer');
+        total();
+        dlg.showModal();
+      };
+      form.qty.oninput = total;
+      form.querySelectorAll('[data-pay]').forEach((b) => { b.onclick = () => setPay(b.dataset.pay); });
+      dlg.addEventListener('close', async () => {
+        if (dlg.returnValue !== 'save') return;
+        try {
+          const body = { ...Object.fromEntries(new FormData(form)), item_id: item.id, pay };
+          const r = await Ros.api('POST', `/api/e/${token}/orders`, body);
+          location.href = r.pay_url || r.order_url;
+        } catch (err) { Ros.toast(err.message); dlg.showModal(); }
+      });
+      Ros.registerSW();
+    })();
+  </script>
+</body>
+</html>

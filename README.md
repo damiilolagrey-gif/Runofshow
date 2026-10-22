@@ -38,6 +38,18 @@ when you have Meta Cloud API access.
   - browser push (vendor taps "Turn on alerts"),
   - WhatsApp via the Meta Cloud API when `WHATSAPP_*` is set,
   - otherwise logged in the activity feed with a one-tap "Send on WhatsApp" link for the planner.
+- **Guests** (`/p/<token>/guests`): paste a list from Excel, send each guest a WhatsApp
+  invite link with RSVP and a QR entry pass, or share one open RSVP link in family groups.
+- **Usher gate** (`/gate/<gate-token>`): ushers scan QR passes with their phone camera (or
+  type the 6-letter code / search a name). Shows table number, flags duplicates, live headcount.
+- **Aso-ebi** (`/p/<token>/asoebi`): list items with sizes or colours; buyers order from the
+  public page (`/e/<public-token>`), pay by bank transfer (planner marks paid) or by card via
+  Paystack when `PAYSTACK_SECRET_KEY` is set; track paid and collected.
+- **Payments & budget** (`/p/<token>/money`): each vendor's fee, agreement text (vendor taps
+  Accept on their page), deposits and balances with due dates; budget lines that fill in
+  automatically from linked vendors.
+- **Couple's page** (`/c/<couple-token>`): read-only view of budget, payments, RSVPs,
+  aso-ebi and the day's timeline.
 - **Preview a time**: add `?clock=17:40` to either URL to see the day as it would look then.
 
 The links are the credentials: anyone with the planner link can edit the event, and a
@@ -57,5 +69,5 @@ test/           node:test API and socket tests
 
 ## Not in the MVP yet
 
-Planner accounts and billing, venues with multiple planners, editing templates in the UI,
+Seating charts, planner accounts and billing, venues with multiple planners, editing templates in the UI,
 SMS fallback, and multi-day events.

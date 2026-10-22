@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Our wedding · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar"><div class="wrap">
+    <div class="title"><h1 id="ev-name">Loading…</h1><div class="muted small" id="ev-sub"></div></div>
+    <span class="pill plain" id="countdown"></span>
+  </div></header>
+  <main class="wrap stack">
+    <section class="stats">
+      <div class="card stat"><div class="n" id="g-yes">0</div><div class="l" id="g-yes-l">Guests coming</div></div>
+      <div class="card stat"><div class="n" id="b-committed">₦0</div><div class="l" id="b-committed-l">Committed of budget</div></div>
+      <div class="card stat"><div class="n" id="b-paid">₦0</div><div class="l">Paid so far</div></div>
+      <div class="card stat"><div class="n" id="a-paid">₦0</div><div class="l" id="a-l">Aso-ebi paid</div></div>
+    </section>
+    <div class="two-col">
+      <section class="stack">
+        <div class="card">
+          <div class="section-head"><h2>Budget</h2></div>
+          <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Category</th><th class="num">Budget</th><th class="num">Committed</th><th class="num">Paid</th></tr></thead><tbody id="lines"></tbody></table></div>
+          <div class="empty hidden" id="lines-empty">Your planner hasn't added a budget yet.</div>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>Payments coming up</h2></div>
+          <ul class="feed" id="upcoming"></ul>
+        </div>
+      </section>
+      <section class="stack">
+        <div class="card">
+          <div class="section-head"><h2>Guests</h2><a class="btn sm" id="rsvp-link" target="_blank" rel="noopener">RSVP page</a></div>
+          <ul class="feed" id="guests"></ul>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>Vendors</h2></div>
+          <ul class="vlist" id="vendors"></ul>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>The day</h2></div>
+          <ol class="cues" id="cues"></ol>
+        </div>
+      </section>
+    </div>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    /* global io */
+    (() => {
+      const token = location.pathname.split('/').pop();
+      const $ = (id) => document.getElementById(id);
+      const N = Ros.naira;
+      async function load() {
+        let d;
+        try { d = await Ros.api('GET', `/api/c/${token}`); }
+        catch (err) { $('ev-name').textContent = err.status === 404 ? 'This link is no longer active' : 'Could not load'; return; }
+        const e = d.event;
+        document.title = e.name;
+        $('ev-name').textContent = e.name;
+        $('ev-sub').textContent = [Ros.fmtDate(e.date), e.venue].filter(Boolean).join(' · ');
+        const days = Math.ceil((new Date(`${e.date}T00:00`) - new Date()) / 864e5);
+        $('countdown').textContent = days > 1 ? `${days} days to go` : days === 1 ? 'Tomorrow!' : days === 0 ? 'Today!' : 'Done 🎉';
+        $('rsvp-link').href = `/e/${e.public_token}`;
+
+        const g = d.guests;
+        $('g-yes').textContent = g.yes_people;
+        $('g-yes-l').textContent = `Guests coming · ${g.arrived_people ? `${g.arrived_people} arrived` : `${g.pending} not replied`}`;
+        const t = d.money.totals;
+        $('b-committed').textContent = N(t.committed);
+        $('b-committed').classList.toggle('neg', t.planned > 0 && t.committed > t.planned);
+        $('b-committed-l').textContent = t.planned ? `Committed of ${N(t.planned)} budget` : 'Committed';
+        $('b-paid').textContent = N(t.paid);
+        $('a-paid').textContent = N(d.asoebi.paid);
+        $('a-l').textContent = `Aso-ebi paid · ${d.asoebi.pieces} pieces ordered`;
+
+        const rows = [...d.money.lines.map((l) => ({ name: l.category, sub: [l.label, l.vendor_name].filter(Boolean).join(' · '), planned: l.planned, committed: l.committed, paid: l.paid })),
+          ...d.money.unlinked.map((u) => ({ name: u.name, sub: u.role, planned: 0, committed: u.committed, paid: u.paid }))];
+        $('lines').innerHTML = rows.map((r) => `<tr><td><strong>${Ros.esc(r.name)}</strong><div class="muted small">${Ros.esc(r.sub)}</div></td>
+          <td class="num">${r.planned ? N(r.planned) : '–'}</td><td class="num ${r.planned && r.committed > r.planned ? 'neg' : ''}">${N(r.committed)}</td><td class="num">${N(r.paid)}</td></tr>`).join('');
+        $('lines-empty').classList.toggle('hidden', rows.length > 0);
+        $('upcoming').innerHTML = d.money.upcoming.slice(0, 8).map((p) => `<li><strong>${Ros.esc(p.vendor)}</strong> · ${Ros.esc(p.label)} · ${N(p.amount)}
+          <div class="small ${p.overdue ? 'neg' : 'muted'}">${p.due_date ? `${p.overdue ? 'Overdue since' : 'Due'} ${Ros.fmtDate(p.due_date)}` : 'No due date'}</div></li>`).join('') || '<li class="muted">Nothing unpaid.</li>';
+
+        $('guests').innerHTML = [
+          ['Invited', `${g.invited_people} people (${g.invited} invites)`], ['Coming', `${g.yes_people} people`],
+          ['Not replied', `${g.pending} invites`], ['Can’t come', `${g.no} invites`], ['Arrived on the day', `${g.arrived_people} people`],
+        ].map(([k, v]) => `<li class="row"><span class="grow">${k}</span><strong>${v}</strong></li>`).join('');
+
+        $('vendors').innerHTML = d.money.vendors.map((f) => {
+          return `<li><div><div class="name">${Ros.esc(f.name)}</div><div class="muted small">${f.name === f.role ? "" : `${Ros.esc(f.role)} · `}${f.fee ? `${N(f.paid)} of ${N(f.fee)} paid` : 'No fee set'}</div></div>
+            ${f.accepted_at ? '<span class="pill ok">Agreed</span>' : f.fee ? '<span class="pill soon">Not agreed yet</span>' : ''}</li>`;
+        }).join('') || '<li class="muted">No vendors yet.</li>';
+
+        $('cues').innerHTML = d.cues.map((c) => `<li class="cue ${c.done_at ? 'is-done' : ''}" style="grid-template-columns:76px 1fr">
+          <div class="time">${Ros.fmt(c.start_min)}</div><div class="what"><div class="t">${Ros.esc(c.title)}</div></div></li>`).join('') || '<li class="cue"><div></div><div class="muted">No timeline yet.</div></li>';
+      }
+      const socket = io({ auth: { couple: token } });
+      let t;
+      socket.on('changed', () => { clearTimeout(t); t = setTimeout(load, 200); });
+      load();
+      Ros.registerSW();
+    })();
+  </script>
+</body>
+</html>

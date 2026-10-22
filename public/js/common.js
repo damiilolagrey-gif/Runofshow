@@ -74,5 +74,19 @@ const Ros = (() => {
     return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   }
 
-  return { esc, api, toast, nowMin, cueStatus, statusLabel, untilText, clockText, cache, registerSW, timeAgo, fmt: RosTime.fmtTime, parse: RosTime.parseTime };
+  // Money is stored in kobo.
+  const naira = (k) => `₦${(Math.round(k) / 100).toLocaleString('en-NG', { maximumFractionDigits: 2 })}`;
+  function toKobo(str) {
+    const n = Number(String(str ?? '').replace(/[₦,\s]/g, ''));
+    return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) : null;
+  }
+  const nairaInput = (k) => (k ? String(k / 100) : '');
+  const waLink = (phone, text) => `https://wa.me/${phone || ''}?text=${encodeURIComponent(text)}`;
+  const fmtDate = (d) => (d ? new Date(`${d.slice(0, 10)}T12:00`).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '');
+
+  async function copy(text, label = 'Link') {
+    try { await navigator.clipboard.writeText(text); toast(`${label} copied`); } catch { prompt('Copy this', text); }
+  }
+
+  return { naira, toKobo, nairaInput, waLink, fmtDate, copy, esc, api, toast, nowMin, cueStatus, statusLabel, untilText, clockText, cache, registerSW, timeAgo, fmt: RosTime.fmtTime, parse: RosTime.parseTime };
 })();

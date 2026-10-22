@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guests · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="title">
+        <h1 id="ev-name">Loading…</h1>
+        <div class="muted small" id="ev-sub"></div>
+      </div>
+      <nav class="sections" id="sections"></nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="stats five">
+      <div class="card stat"><div class="n" id="s-invited">0</div><div class="l">People invited</div></div>
+      <div class="card stat"><div class="n" id="s-yes">0</div><div class="l">Coming</div></div>
+      <div class="card stat"><div class="n" id="s-pending">0</div><div class="l">Not replied</div></div>
+      <div class="card stat"><div class="n" id="s-no">0</div><div class="l">Can't come</div></div>
+      <div class="card stat"><div class="n" id="s-arrived">0</div><div class="l">Arrived</div></div>
+    </section>
+    <section class="card">
+      <div class="toolbar">
+        <input type="search" id="q" placeholder="Search name, phone, table or code">
+        <select id="filter" aria-label="Filter">
+          <option value="all">Everyone</option><option value="yes">Coming</option><option value="pending">Not replied</option>
+          <option value="no">Can't come</option><option value="arrived">Arrived</option><option value="notarrived">Coming, not arrived</option>
+        </select>
+        <button class="btn sm" id="import">Import list</button>
+        <button class="btn sm primary" id="add">+ Guest</button>
+      </div>
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>Guest</th><th class="num">Party</th><th class="hide-sm">Side</th><th>Table</th><th>RSVP</th><th class="hide-sm">Arrived</th><th></th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <div class="empty hidden" id="empty">No guests yet. Import your list, or share the RSVP link from <strong>Share &amp; settings</strong>.</div>
+    </section>
+  </main>
+
+  <dialog id="guest-dlg"><form method="dialog">
+    <h3>Guest</h3>
+    <div class="field"><label for="g-name">Name</label><input id="g-name" name="name" required></div>
+    <div class="grid2 field">
+      <div><label for="g-phone">WhatsApp number</label><input id="g-phone" name="phone" inputmode="tel" placeholder="0803 123 4567"></div>
+      <div><label for="g-party">People in party</label><input id="g-party" name="party_size" type="number" min="1" max="20" value="1"></div>
+    </div>
+    <div class="grid2 field">
+      <div><label for="g-side">Side</label><input id="g-side" name="side" list="sides" placeholder="Bride"></div>
+      <div><label for="g-table">Table</label><input id="g-table" name="table_label" placeholder="12"></div>
+    </div>
+    <datalist id="sides"><option>Bride</option><option>Groom</option><option>Bride's family</option><option>Groom's family</option><option>Friends</option><option>VIP</option></datalist>
+    <div class="field"><label for="g-rsvp">RSVP</label><select id="g-rsvp" name="rsvp"><option value="pending">Not replied</option><option value="yes">Coming</option><option value="no">Can't come</option></select></div>
+    <div class="foot">
+      <button class="btn danger ghost" value="delete" formnovalidate>Delete</button><span style="flex:1"></span>
+      <button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Save</button>
+    </div>
+  </form></dialog>
+
+  <dialog id="import-dlg"><form method="dialog">
+    <h3>Import guests</h3>
+    <p class="muted small">Paste from Excel or Google Sheets, one guest per line: <strong>name, phone, party size, side, table</strong>. Only the name is needed.</p>
+    <textarea name="text" rows="10" placeholder="Chief Adeyemi, 08031234567, 2, Bride, 1&#10;Mrs Okafor, 08099998888, 1, Groom, 12"></textarea>
+    <div class="foot"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Import</button></div>
+  </form></dialog>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/section.js"></script>
+  <script src="/js/guests.js"></script>
+</body>
+</html>

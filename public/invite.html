@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your invitation</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <main class="public-wrap stack">
+    <div class="head">
+      <div class="muted small" style="text-transform:uppercase;letter-spacing:.1em">You're invited</div>
+      <h1 id="ev-name">Loading…</h1>
+      <div class="muted" id="ev-when"></div>
+    </div>
+    <section class="card card-pad stack" id="ask">
+      <div style="font-weight:700;font-size:1.1rem" id="hello"></div>
+      <div>Will you be there?</div>
+      <div class="field"><label for="party">How many people (including you)?</label><input id="party" type="number" min="1" max="20" value="1" inputmode="numeric"></div>
+      <div class="segmented"><button class="btn primary" id="yes">Yes, I'll be there</button><button class="btn" id="no">Sorry, I can't</button></div>
+    </section>
+    <section class="card card-pad stack hidden" id="pass" style="text-align:center">
+      <div style="font-weight:700;font-size:1.1rem" id="pass-hello"></div>
+      <div class="muted">Show this at the gate. Screenshot it in case the network is bad.</div>
+      <img class="qr" id="qr" alt="Your entry QR code">
+      <div class="code" id="code"></div>
+      <div id="table"></div>
+      <div class="muted small" id="party-line"></div>
+      <button class="btn ghost sm" id="change">Change my answer</button>
+    </section>
+    <section class="card card-pad hidden" id="declined" style="text-align:center">
+      <div style="font-weight:700">Thanks for letting us know. You'll be missed!</div>
+      <button class="btn ghost sm" id="change2" style="margin-top:8px">Change my answer</button>
+    </section>
+  </main>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    (() => {
+      const token = location.pathname.split('/').pop();
+      const $ = (id) => document.getElementById(id);
+      const cacheKey = `ros:i:${token}`;
+      let data = Ros.cache.get(cacheKey);
+      let editing = false;
+      function render() {
+        if (!data) return;
+        const { event: e, guest: g } = data;
+        document.title = `${e.name} · Invitation`;
+        $('ev-name').textContent = e.name;
+        $('ev-when').textContent = [Ros.fmtDate(e.date), e.venue].filter(Boolean).join(' · ');
+        $('hello').textContent = `Hello ${g.name},`;
+        $('party').value = g.party_size;
+        const show = editing ? 'ask' : g.rsvp === 'yes' ? 'pass' : g.rsvp === 'no' ? 'declined' : 'ask';
+        for (const id of ['ask', 'pass', 'declined']) $(id).classList.toggle('hidden', id !== show);
+        if (show === 'pass') {
+          $('pass-hello').textContent = g.arrived_at ? `Welcome, ${g.name}! You're checked in.` : `See you there, ${g.name}!`;
+          $('qr').src = `/api/i/${token}/qr.svg`;
+          $('code').textContent = g.code;
+          $('table').innerHTML = g.table_label ? `<span class="table-badge">Table ${Ros.esc(g.table_label)}</span>` : '';
+          $('party-line').textContent = `Admits ${g.party_size} ${g.party_size === 1 ? 'person' : 'people'}`;
+        }
+      }
+      async function load() {
+        try { data = await Ros.api('GET', `/api/i/${token}`); Ros.cache.set(cacheKey, data); render(); }
+        catch (err) { if (!data) $('ev-name').textContent = err.status === 404 ? 'This invitation is no longer valid' : 'Could not load. Check your connection.'; }
+      }
+      async function answer(rsvp) {
+        try {
+          await Ros.api('POST', `/api/i/${token}/rsvp`, { rsvp, party_size: Number($('party').value) });
+          editing = false;
+          await load();
+        } catch (err) { Ros.toast(err.message); }
+      }
+      $('yes').onclick = () => answer('yes');
+      $('no').onclick = () => answer('no');
+      $('change').onclick = $('change2').onclick = () => { editing = true; render(); };
+      render();
+      load();
+      Ros.registerSW();
+    })();
+  </script>
+</body>
+</html>
