@@ -50,6 +50,28 @@
       </div>
     </section>
 
+    <section class="card hidden" id="review">
+      <div class="section-head"><h2>Your review</h2><span id="review-status"></span></div>
+      <div class="card-pad stack">
+        <div id="review-none">
+          <p style="margin-top:0">Ask the couple to rate your work. Their review is verified, and you can share it on WhatsApp, Instagram and your profile.</p>
+          <button class="btn primary big" id="ask-review">⭐ Ask the couple for a review</button>
+        </div>
+        <p class="muted hidden" id="review-asked" style="margin:0">The couple has been asked to review you. It will show here as soon as they post it.</p>
+        <div class="hidden" id="review-got">
+          <div class="stars" id="review-stars"></div>
+          <blockquote id="review-body" style="margin:10px 0;font-size:1.05rem"></blockquote>
+          <div class="muted small" id="review-who"></div>
+          <div class="row" style="margin-top:14px">
+            <a class="btn primary" id="share-wa" target="_blank" rel="noopener">Share on WhatsApp</a>
+            <button class="btn" id="share-copy" type="button">Copy link</button>
+            <a class="btn ghost" id="share-view" target="_blank" rel="noopener">View card</a>
+          </div>
+        </div>
+        <a class="small hidden" id="profile-link" target="_blank" rel="noopener">See your public profile with every review →</a>
+      </div>
+    </section>
+
     <section class="card hidden" id="notices-card">
       <div class="section-head"><h2>Changes sent to you</h2></div>
       <ul class="feed" id="notices"></ul>

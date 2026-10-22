@@ -50,6 +50,13 @@ when you have Meta Cloud API access.
   automatically from linked vendors.
 - **Couple's page** (`/c/<couple-token>`): read-only view of budget, payments, RSVPs,
   aso-ebi and the day's timeline.
+- **Couple's progress** (`/p/<token>/progress`): a checklist by category (starter list per
+  event type). Items linked to a vendor tick themselves when that vendor accepts their agreement.
+  The couple's page opens with a % ring, each category's "x of y", a note from the planner and a
+  "Message your planner" WhatsApp button.
+- **Vendor reviews**: from the event day, a vendor taps "Ask the couple for a review" and the
+  couple rates them from their private page. The vendor shares the verified card at
+  `/review/<token>`, and `/pro/<slug>` collects every review for the same phone number.
 - **Accounts and plans** (`/signup`, `/dashboard`, `/pricing`): planners sign up, see all
   their events and pay through Paystack. Starter is free (1 upcoming event, 150 guests per
   event), Pro and Business are monthly or yearly subscriptions, and any single event can be

@@ -6,7 +6,7 @@ const { HttpError, normalizePhone } = require('./store');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
-function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, io, broadcast }) {
+function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, io, broadcast }) {
   // Card payment for aso-ebi needs the event's planner to have a payout account, so the money reaches them.
   const payoutFor = (ev) => {
     const owner = ev.planner_id && accounts.get(ev.planner_id);
@@ -22,7 +22,7 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, i
     for (const room of [`planner:${eventId}`, `couple:${eventId}`, `gate:${eventId}`]) io.to(room).emit('changed', topic);
   };
 
-  for (const section of ['guests', 'asoebi', 'money']) app.get(`/p/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'asoebi', 'money', 'progress']) app.get(`/p/:token/${section}`, page(`${section}.html`));
   app.get('/i/:token', page('invite.html'));
   app.get('/e/:token', page('event.html'));
   app.get('/o/:token', page('order.html'));
@@ -52,6 +52,37 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, i
     changed(e.id, 'settings');
     await broadcast(e.id);
   }));
+
+  // progress checklist the couple sees
+  p.get('/progress', (req, res) => {
+    const e = req.ev;
+    res.json({ items: progress.items(e.id), summary: progress.summary(e.id), vendors: store.vendors(e.id).map(({ id, name, role, accepted_at }) => ({ id, name, role, accepted_at })),
+      note: { couple_names: e.couple_names, couple_note: e.couple_note, contact_phone: e.contact_phone } });
+  });
+  p.post('/progress', (req, res) => {
+    const id = progress.add(req.ev.id, req.body || {});
+    res.status(201).json({ id });
+    changed(req.ev.id, 'progress');
+  });
+  p.post('/progress/starter', (req, res) => {
+    res.status(201).json({ added: progress.seed(req.ev.id, req.ev.type) });
+    changed(req.ev.id, 'progress');
+  });
+  p.patch('/progress/note', (req, res) => {
+    progress.setNote(req.ev, req.body || {});
+    res.json({ ok: true });
+    changed(req.ev.id, 'progress');
+  });
+  p.patch('/progress/:id', (req, res) => {
+    progress.update(req.ev.id, num(req), req.body || {});
+    res.json({ ok: true });
+    changed(req.ev.id, 'progress');
+  });
+  p.delete('/progress/:id', (req, res) => {
+    progress.remove(req.ev.id, num(req));
+    res.json({ ok: true });
+    changed(req.ev.id, 'progress');
+  });
 
   // guests
   p.get('/guests', (req, res) => res.json({ guests: guests.list(req.ev.id), stats: guests.stats(req.ev.id) }));
@@ -267,20 +298,41 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, i
 
   // ---------- couple ----------
 
-  app.get('/api/c/:token', (req, res, next) => {
-    const ev = store.db.prepare('SELECT * FROM events WHERE couple_token = ?').get(req.params.token);
-    if (!ev) return next(new HttpError(404, 'Link not found'));
+  const coupleEvent = (token) => {
+    const ev = store.db.prepare('SELECT * FROM events WHERE couple_token = ?').get(token);
+    if (!ev) throw new HttpError(404, 'Link not found');
+    return ev;
+  };
+
+  app.get('/api/c/:token', (req, res) => {
+    const ev = coupleEvent(req.params.token);
     const money = finance.summary(ev.id);
+    const owner = ev.planner_id && accounts.get(ev.planner_id);
+    const byVendor = Object.fromEntries(reviews.forEvent(ev.id).map((r) => [r.vendor_id, r]));
     res.json({
       event: { ...publicEvent(ev), public_token: ev.public_token },
+      planner: { name: owner?.name || '', phone: ev.contact_phone || owner?.phone || '' },
+      progress: { ...progress.summary(ev.id), couple_names: ev.couple_names, note: ev.couple_note },
+      reviews_open: reviews.open(ev),
       cues: store.cues(ev.id).map(({ title, start_min, duration, done_at }) => ({ title, start_min, duration, done_at })),
-      vendors: store.vendors(ev.id).map(({ name, role, checked_in_at }) => ({ name, role, checked_in_at })),
+      vendors: store.vendors(ev.id).map(({ id, name, role, checked_in_at, review_requested_at }) => {
+        const r = byVendor[id];
+        return { id, name, role, checked_in_at, review_requested: Boolean(review_requested_at), review: r ? { rating: r.rating, body: r.body, reviewer: r.reviewer } : null };
+      }),
       guests: guests.stats(ev.id),
       asoebi: asoebi.stats(ev.id),
       money: { totals: money.totals, lines: money.lines, unlinked: money.unlinked, upcoming: money.upcoming,
         vendors: money.vendors.map(({ terms: _t, ...v }) => v) },
     });
   });
+  app.post('/api/c/:token/reviews', wrap(async (req, res) => {
+    const ev = coupleEvent(req.params.token);
+    const { vendor } = reviews.save(ev, req.body || {});
+    store.log(ev.id, 'change', `The couple reviewed ${vendor.name}`, vendor.id);
+    res.status(201).json({ ok: true });
+    changed(ev.id, 'reviews');
+    await broadcast(ev.id);
+  }));
 }
 
 module.exports = { mountSuite };

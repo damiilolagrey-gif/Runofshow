@@ -2,7 +2,7 @@
 // Planner section tabs plus the "Share & settings" dialog, shared by every planner page.
 const RosNav = (() => {
   const token = location.pathname.split('/')[2];
-  const sections = [['', 'Timeline'], ['guests', 'Guests'], ['asoebi', 'Aso-ebi'], ['money', 'Payments & budget']];
+  const sections = [['', 'Timeline'], ['guests', 'Guests'], ['asoebi', 'Aso-ebi'], ['money', 'Payments & budget'], ['progress', 'Couple’s progress']];
 
   function mount(active) {
     const nav = document.getElementById('sections');
@@ -26,7 +26,7 @@ const RosNav = (() => {
         <button class="btn sm" type="button" data-copy="${url}">Copy</button>
         <a class="btn sm" target="_blank" rel="noopener" href="${Ros.waLink('', `${label} for ${e.name}: ${url}`)}">WhatsApp</a></div>`;
       document.getElementById('share-links').innerHTML = [
-        link('Couple’s page', `${o}/c/${e.couple_token}`, 'Budget, payments, RSVPs and the day, for the couple. View only.'),
+        link('Couple’s page', `${o}/c/${e.couple_token}`, 'Progress, budget, RSVPs and the day for the couple. They rate vendors here after the event.'),
         link('RSVP and aso-ebi page', `${o}/e/${e.public_token}`, 'For family WhatsApp groups. Guests RSVP and order aso-ebi.'),
         link('Usher gate scanner', `${o}/gate/${e.gate_token}`, 'For ushers’ phones. Scans guest QR codes at the gate.'),
         link('Planner (you)', `${o}/p/${token}`, 'Full control. Keep this one private.'),

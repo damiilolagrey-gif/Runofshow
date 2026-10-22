@@ -159,6 +159,31 @@ function openDb(file) {
 
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 
+    -- The couple's rating of a vendor, written only from the couple's page so it can be shown as verified.
+    CREATE TABLE IF NOT EXISTS reviews (
+      id         INTEGER PRIMARY KEY,
+      event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      vendor_id  INTEGER NOT NULL UNIQUE REFERENCES vendors(id) ON DELETE CASCADE,
+      rating     INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+      body       TEXT NOT NULL DEFAULT '',
+      reviewer   TEXT NOT NULL DEFAULT '',
+      token      TEXT NOT NULL UNIQUE,      -- public share link for the review card
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+      updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+
+    -- What's locked in before the day, shown to the couple as a progress view.
+    CREATE TABLE IF NOT EXISTS checklist (
+      id         INTEGER PRIMARY KEY,
+      event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      category   TEXT NOT NULL,
+      title      TEXT NOT NULL,
+      vendor_id  INTEGER REFERENCES vendors(id) ON DELETE SET NULL, -- locks itself once this vendor accepts their agreement
+      locked_at  TEXT,
+      sort       INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS checklist_event ON checklist(event_id, sort);
     CREATE INDEX IF NOT EXISTS cues_event ON cues(event_id, start_min);
     CREATE INDEX IF NOT EXISTS guests_event ON guests(event_id, name);
     CREATE INDEX IF NOT EXISTS orders_event ON asoebi_orders(event_id, id);
@@ -185,6 +210,7 @@ function migrate(db) {
     ['pay_details', "TEXT NOT NULL DEFAULT ''"], // bank transfer instructions shown to aso-ebi buyers
   ]);
   addColumns('vendors', [
+    ['review_requested_at', 'TEXT'],
     ['fee', 'INTEGER NOT NULL DEFAULT 0'], // kobo
     ['terms', "TEXT NOT NULL DEFAULT ''"],
     ['accepted_at', 'TEXT'],
@@ -192,6 +218,9 @@ function migrate(db) {
   addColumns('events', [
     ['planner_id', 'INTEGER REFERENCES planners(id) ON DELETE SET NULL'], // null for events made before accounts
     ['unlocked', 'INTEGER NOT NULL DEFAULT 0'],                         // paid for on its own (pay-per-event)
+    ['couple_names', "TEXT NOT NULL DEFAULT ''"],  // greeting on the couple's page
+    ['couple_note', "TEXT NOT NULL DEFAULT ''"],   // "Note from your planner"
+    ['contact_phone', "TEXT NOT NULL DEFAULT ''"], // "Message your planner" WhatsApp number
   ]);
   const fill = db.prepare('UPDATE events SET public_token = ?, gate_token = ?, couple_token = ? WHERE id = ?');
   for (const { id } of db.prepare('SELECT id FROM events WHERE public_token IS NULL').all()) {

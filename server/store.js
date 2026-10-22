@@ -236,7 +236,9 @@ class Store {
 
   vendorView(vendorId) {
     const vendor = this.vendor(vendorId);
-    const { planner_token, ...event } = this.event(vendor.event_id);
+    // Only what a vendor needs: the other event links (couple, gate, planner) are credentials.
+    const { id, name, type, date, venue } = this.event(vendor.event_id);
+    const event = { id, name, type, date, venue };
     const names = Object.fromEntries(this.vendors(vendor.event_id).map((v) => [v.id, `${v.name}`]));
     const cues = this.cues(vendor.event_id)
       .filter((c) => c.vendor_ids.includes(vendor.id))

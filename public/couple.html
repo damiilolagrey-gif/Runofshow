@@ -15,6 +15,29 @@
     <span class="pill plain" id="countdown"></span>
   </div></header>
   <main class="wrap stack">
+    <section class="couple-top stack" id="progress">
+      <div class="card progress-hero">
+        <div class="brandline" id="brandline"></div>
+        <h2 id="hello">Hi there</h2>
+        <div id="ring-wrap">
+          <div class="ring" role="img" id="ring">
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="track" cx="60" cy="60" r="52" fill="none" stroke-width="10"/><circle class="fill" id="ring-fill" cx="60" cy="60" r="52" fill="none" stroke-width="10" stroke-dasharray="326.73" stroke-dashoffset="326.73"/></svg>
+            <div class="inner"><div class="pct" id="pct">0%</div><div class="of" id="of"></div></div>
+          </div>
+        </div>
+        <div class="muted" id="on-track"></div>
+      </div>
+      <div class="card" id="cats-card"><ul class="cats" id="cats"></ul></div>
+      <div class="note-card hidden" id="note"><div class="label" id="note-label">Note from your planner</div><p id="note-text"></p></div>
+      <a class="btn big hidden" id="message-planner" target="_blank" rel="noopener">💬 Message your planner</a>
+    </section>
+
+    <section class="card hidden" id="reviews-card">
+      <div class="section-head"><h2>Rate your vendors</h2><span class="muted small" id="reviews-count"></span></div>
+      <p class="muted small" style="margin:12px 16px 0">Your review goes on the vendor’s public profile as a verified review, so they can share it.</p>
+      <ul class="vlist" id="review-list"></ul>
+    </section>
+
     <section class="stats">
       <div class="card stat"><div class="n" id="g-yes">0</div><div class="l" id="g-yes-l">Guests coming</div></div>
       <div class="card stat"><div class="n" id="b-committed">₦0</div><div class="l" id="b-committed-l">Committed of budget</div></div>
@@ -49,6 +72,15 @@
       </section>
     </div>
   </main>
+  <dialog id="review-dlg"><form method="dialog">
+    <h3 id="r-title">Rate</h3>
+    <div class="star-pick" id="r-stars" role="radiogroup" aria-label="Rating">
+      <button type="button" data-n="1" aria-label="1 star">★</button><button type="button" data-n="2" aria-label="2 stars">★</button><button type="button" data-n="3" aria-label="3 stars">★</button><button type="button" data-n="4" aria-label="4 stars">★</button><button type="button" data-n="5" aria-label="5 stars">★</button>
+    </div>
+    <div class="field" style="margin-top:12px"><label for="r-body">What was it like working with them?</label><textarea id="r-body" maxlength="1000" placeholder="The DJ kept the dance floor full all night…"></textarea></div>
+    <div class="field"><label for="r-who">Sign it as</label><input id="r-who" maxlength="80" placeholder="Ade &amp; Tolu"></div>
+    <div class="foot"><button class="btn" value="cancel">Cancel</button><button class="btn primary" value="save" id="r-save">Post review</button></div>
+  </form></dialog>
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/time.js"></script>
   <script src="/js/common.js"></script>
@@ -69,6 +101,8 @@
         const days = Math.ceil((new Date(`${e.date}T00:00`) - new Date()) / 864e5);
         $('countdown').textContent = days > 1 ? `${days} days to go` : days === 1 ? 'Tomorrow!' : days === 0 ? 'Today!' : 'Done 🎉';
         $('rsvp-link').href = `/e/${e.public_token}`;
+        renderProgress(d, days);
+        renderReviews(d);
 
         const g = d.guests;
         $('g-yes').textContent = g.yes_people;
@@ -102,6 +136,74 @@
         $('cues').innerHTML = d.cues.map((c) => `<li class="cue ${c.done_at ? 'is-done' : ''}" style="grid-template-columns:76px 1fr">
           <div class="time">${Ros.fmt(c.start_min)}</div><div class="what"><div class="t">${Ros.esc(c.title)}</div></div></li>`).join('') || '<li class="cue"><div></div><div class="muted">No timeline yet.</div></li>';
       }
+      function renderProgress(d, days) {
+        const p = d.progress;
+        const who = d.planner.name || 'Your planner';
+        $('brandline').innerHTML = d.planner.name ? `<strong>${Ros.esc(d.planner.name)}</strong> · powered by Run of Show` : 'Run of Show';
+        $('hello').textContent = p.couple_names ? `Hi ${p.couple_names}` : 'Hi there';
+        $('ring-wrap').classList.toggle('hidden', !p.total);
+        $('cats-card').classList.toggle('hidden', !p.total);
+        $('pct').textContent = `${p.percent}%`;
+        $('of').textContent = `${p.locked} of ${p.total}\nlocked in`;
+        $('ring').setAttribute('aria-label', `${p.percent}% ready: ${p.locked} of ${p.total} locked in`);
+        $('ring-fill').style.strokeDashoffset = String(326.73 * (1 - p.percent / 100));
+        const when = new Date(`${d.event.date}T12:00`).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+        const overdue = d.money.upcoming.some((u) => u.overdue);
+        $('on-track').textContent = days < 0 ? 'Hope the day was everything you wanted.'
+          : p.total && p.locked === p.total ? `Everything is locked in for ${when}.`
+          : overdue ? `A payment is overdue. ${who} will be in touch.`
+          : `Everything is on track for ${when}. ${who} is handling the rest.`;
+        $('cats').innerHTML = p.categories.map((c) => {
+          const cls = c.locked === c.total ? 'full' : c.locked ? 'part' : '';
+          return `<li title="${Ros.esc(c.items.map((i) => `${i.locked ? '✓' : '·'} ${i.title}`).join('\n'))}"><span class="tick ${cls}" aria-hidden="true">${cls === 'full' ? '✓' : c.locked ? '…' : ''}</span>
+            <span class="grow">${Ros.esc(c.name)}</span><span class="count">${c.locked} of ${c.total}</span></li>`;
+        }).join('');
+        $('note').classList.toggle('hidden', !p.note);
+        $('note-label').textContent = `Note from ${d.planner.name || 'your planner'}`;
+        $('note-text').textContent = p.note;
+        $('message-planner').classList.toggle('hidden', !d.planner.phone);
+        $('message-planner').href = Ros.waLink(d.planner.phone, `Hi${d.planner.name ? ` ${d.planner.name}` : ''}, it's about ${d.event.name}: `);
+      }
+
+      let vendors = [];
+      function renderReviews(d) {
+        vendors = d.vendors;
+        $('reviews-card').classList.toggle('hidden', !d.reviews_open || !vendors.length);
+        const done = vendors.filter((v) => v.review).length;
+        $('reviews-count').textContent = `${done} of ${vendors.length} rated`;
+        // Vendors who asked come first.
+        const order = [...vendors].sort((a, b) => (!a.review && a.review_requested ? 0 : 1) - (!b.review && b.review_requested ? 0 : 1));
+        $('review-list').innerHTML = order.map((v) => `<li data-id="${v.id}"><div><div class="name">${Ros.esc(v.name)}</div><div class="muted small">${v.name === v.role ? '' : Ros.esc(v.role)}
+            ${!v.review && v.review_requested ? '<span class="pill soon">Asked for your review</span>' : ''}</div></div>
+          ${v.review ? `<button class="btn sm ghost" type="button"><span class="rated">${'★'.repeat(v.review.rating)}</span> Edit</button>` : '<button class="btn sm primary" type="button">Rate</button>'}</li>`).join('');
+      }
+
+      let reviewing = null;
+      let rating = 0;
+      const paintStars = () => $('r-stars').querySelectorAll('button').forEach((b) => { b.classList.toggle('on', Number(b.dataset.n) <= rating); b.setAttribute('aria-checked', String(Number(b.dataset.n) === rating)); });
+      $('r-stars').addEventListener('click', (e) => { const b = e.target.closest('[data-n]'); if (b) { rating = Number(b.dataset.n); paintStars(); } });
+      $('review-list').addEventListener('click', (e) => {
+        const li = e.target.closest('[data-id]');
+        if (!li || !e.target.closest('button')) return;
+        reviewing = vendors.find((v) => v.id === Number(li.dataset.id));
+        rating = reviewing.review?.rating || 0;
+        paintStars();
+        $('r-title').textContent = `How was ${reviewing.name}?`;
+        $('r-body').value = reviewing.review?.body || '';
+        $('r-who').value = reviewing.review?.reviewer || localStorage.getItem('ros:reviewer') || '';
+        $('review-dlg').showModal();
+      });
+      $('review-dlg').addEventListener('close', async () => {
+        if ($('review-dlg').returnValue !== 'save' || !reviewing) return;
+        if (!rating) { Ros.toast('Tap the stars to choose a rating'); $('review-dlg').showModal(); return; }
+        try { localStorage.setItem('ros:reviewer', $('r-who').value); } catch { /* private mode */ }
+        try {
+          await Ros.api('POST', `/api/c/${token}/reviews`, { vendor_id: reviewing.id, rating, body: $('r-body').value, reviewer: $('r-who').value });
+          Ros.toast(`Thanks! ${reviewing.name} can now share your review.`);
+          load();
+        } catch (err) { Ros.toast(err.message); }
+      });
+
       const socket = io({ auth: { couple: token } });
       let t;
       socket.on('changed', () => { clearTimeout(t); t = setTimeout(load, 200); });

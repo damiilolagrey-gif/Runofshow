@@ -69,9 +69,37 @@ const templates = {
   blank: { label: 'Blank timeline', vendors: [], cues: [] },
 };
 
+// Starter checklists for the couple's progress view: [category, item, role of the vendor whose accepted agreement locks it].
+templates['ng-wedding'].checklist = [
+  ['Venue & ceremony', 'Reception venue booked'], ['Venue & ceremony', 'Church or registry booked'],
+  ['Venue & ceremony', 'Traditional engagement date set'], ['Venue & ceremony', 'Ushers and security confirmed', 'Ushers'],
+  ['Food & drink', 'Caterer booked', 'Caterer'], ['Food & drink', 'Small chops booked', 'Small chops'],
+  ['Food & drink', 'Menu tasting done'], ['Food & drink', 'Drinks and bar sorted'], ['Food & drink', 'Cake ordered', 'Cake'],
+  ['Flowers & styling', 'Decorator booked', 'Decorator'], ['Flowers & styling', 'Colours and theme agreed'],
+  ['Flowers & styling', 'Makeup artist booked', 'Makeup'], ['Flowers & styling', 'Aso-ebi fabric chosen'],
+  ['Photo, video & music', 'Photographer booked', 'Photographer'], ['Photo, video & music', 'Videographer booked', 'Videographer'],
+  ['Photo, video & music', 'DJ booked', 'DJ'], ['Photo, video & music', 'Live band booked', 'Live band'], ['Photo, video & music', 'MC booked', 'MC'],
+  ['Transport & extras', 'Wedding car booked'], ['Transport & extras', 'Guest list final'], ['Transport & extras', 'Invitations sent'],
+  ['Transport & extras', 'Souvenirs ordered'],
+];
+templates.corporate.checklist = [
+  ['Venue', 'Venue booked'], ['Venue', 'Decor agreed', 'Decorator'], ['Venue', 'AV booked', 'AV'],
+  ['Programme', 'Host confirmed', 'MC'], ['Programme', 'Speakers confirmed'], ['Programme', 'Run of show signed off'],
+  ['Guests', 'Invitations sent'], ['Guests', 'Registration set up', 'Registration'],
+  ['Food & media', 'Caterer booked', 'Caterer'], ['Food & media', 'Photographer booked', 'Photographer'],
+];
+templates.conference.checklist = [
+  ['Venue', 'Venue booked'], ['Venue', 'AV booked', 'AV'], ['Venue', 'Livestream booked', 'Stream'],
+  ['Programme', 'Compere confirmed', 'MC'], ['Programme', 'Speakers confirmed'], ['Programme', 'Agenda published'],
+  ['Attendees', 'Registration open', 'Registration'], ['Attendees', 'Badges printed'],
+  ['Food & media', 'Caterer booked', 'Caterer'], ['Food & media', 'Photographer booked', 'Photographer'],
+];
+templates.blank.checklist = [];
+
 for (const tpl of Object.values(templates)) {
   tpl.cues = tpl.cues.map(([time, duration, title, roles]) => ({ start_min: t(time), duration, title, roles }));
   tpl.vendors = tpl.vendors.map(([name, role]) => ({ name, role }));
+  tpl.checklist = tpl.checklist.map(([category, title, role = null]) => ({ category, title, role }));
 }
 
 module.exports = templates;

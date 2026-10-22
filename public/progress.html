@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Couple’s progress · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="title">
+        <h1 id="ev-name">Loading…</h1>
+        <div class="muted small" id="ev-sub"></div>
+      </div>
+      <nav class="sections" id="sections"></nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <div class="two-col side-left">
+      <section class="stack">
+        <div class="card card-pad center">
+          <div class="ring" role="img" id="ring" style="width:140px;height:140px">
+            <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="track" cx="60" cy="60" r="52" fill="none" stroke-width="10"/><circle class="fill" id="ring-fill" cx="60" cy="60" r="52" fill="none" stroke-width="10" stroke-dasharray="326.73" stroke-dashoffset="326.73"/></svg>
+            <div class="inner"><div class="pct" id="pct" style="font-size:2rem">0%</div><div class="of" id="of"></div></div>
+          </div>
+          <div class="muted small">This is what the couple sees on their page.</div>
+          <a class="btn sm" id="open-couple" target="_blank" rel="noopener" style="margin-top:10px">Open the couple’s page</a>
+        </div>
+        <form class="card card-pad" id="note-form">
+          <h2 style="margin-bottom:12px">Message to the couple</h2>
+          <div class="field"><label for="n-names">Their names</label><input id="n-names" maxlength="120" placeholder="Ade &amp; Tolu"></div>
+          <div class="field"><label for="n-note">Note from you</label><textarea id="n-note" maxlength="1000" rows="4" placeholder="Cake quote is in progress and the DJ deposit goes out Friday. Nothing needed from you this week."></textarea></div>
+          <div class="field"><label for="n-phone">Your WhatsApp number</label><input id="n-phone" inputmode="tel" placeholder="0803 123 4567"><div class="muted small" style="margin-top:4px">Powers the “Message your planner” button.</div></div>
+          <div class="foot" style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn primary" type="submit">Save</button></div>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="section-head"><h2>Checklist</h2><button class="btn sm primary" id="add-item">+ Item</button></div>
+        <p class="muted small" style="margin:12px 16px 0">Tick what’s locked in. Items linked to a vendor tick themselves when that vendor accepts their agreement.</p>
+        <div id="groups"></div>
+        <div class="empty hidden" id="empty">
+          <p>No checklist yet.</p>
+          <button class="btn primary" id="starter">Add the starter checklist</button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="item-dlg"><form method="dialog">
+    <h3 id="item-title">Checklist item</h3>
+    <div class="field"><label for="i-category">Category</label><input id="i-category" name="category" list="cat-list" maxlength="60" required placeholder="Food &amp; drink"><datalist id="cat-list"></datalist></div>
+    <div class="field"><label for="i-title">Item</label><input id="i-title" name="title" maxlength="120" required placeholder="Cake ordered"></div>
+    <div class="field"><label for="i-vendor">Vendor (optional)</label><select id="i-vendor" name="vendor_id"></select>
+      <div class="muted small" style="margin-top:4px">Ticks itself when this vendor accepts their agreement.</div></div>
+    <label class="inline" style="margin-top:12px"><input type="checkbox" name="locked"> Locked in</label>
+    <div class="foot"><button class="btn danger ghost" value="delete" formnovalidate>Delete</button><span style="flex:1"></span><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Save</button></div>
+  </form></dialog>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/section.js"></script>
+  <script src="/js/progress.js"></script>
+</body>
+</html>
