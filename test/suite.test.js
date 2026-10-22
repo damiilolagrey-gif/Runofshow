@@ -7,11 +7,15 @@ async function start(t, opts = {}) {
   await new Promise((r) => ctx.server.listen(0, r));
   t.after(() => { ctx.io.close(); ctx.server.close(); });
   const base = `http://localhost:${ctx.server.address().port}`;
+  let cookie = '';
   const call = async (method, path, body) => {
-    const res = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body), redirect: 'manual' });
+    const res = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', cookie }, body: body && JSON.stringify(body), redirect: 'manual' });
+    const set = res.headers.get('set-cookie');
+    if (set) cookie = set.split(';')[0];
     const type = res.headers.get('content-type') || '';
     return { status: res.status, body: type.includes('json') ? await res.json() : await res.text(), headers: res.headers };
   };
+  await call('POST', '/api/account/signup', { name: 'Tolu Events', email: `p${Math.random()}@example.com`, password: 'longenough' });
   const { body } = await call('POST', '/api/events', { name: 'Ade & Tolu', type: 'ng-wedding', date: '2026-11-14' });
   const p = body.planner_url.replace('/p/', '/api/p/');
   const ev = ctx.store.event(body.id);
@@ -109,14 +113,26 @@ test('aso-ebi card payment goes through Paystack and is verified before marking 
     const good = url.includes('good-ref');
     return { ok: true, json: async () => ({ status: true, data: { status: good ? 'success' : 'failed', amount: 2500000, metadata: { order_id: orderId } } }) };
   };
-  const { call, p, ev } = await start(t, { paystackKey: 'sk_test_x', fetchImpl: fakePaystack });
+  const { call, p, ev, accounts } = await start(t, { paystackKey: 'sk_test_x', fetchImpl: fakePaystack });
   await call('POST', `${p}/asoebi/items`, { name: 'Cap', price: 2500000 });
   const pub = `/api/e/${ev.public_token}`;
-  const item = (await call('GET', pub)).body.items[0];
+  let item = (await call('GET', pub)).body.items[0];
+
+  // no payout account yet: card is off and the order is a plain bank-transfer order
+  assert.equal((await call('GET', pub)).body.paystack, false);
+  const plain = await call('POST', `${pub}/orders`, { item_id: item.id, buyer_name: 'Femi', phone: '08030000002', pay: 'card', email: 'femi@example.com' });
+  assert.equal(plain.body.pay_url, null);
+  assert.equal(calls.length, 0);
+
+  accounts.setPayout(ev.planner_id, { subaccount_code: 'ACCT_planner', bank: 'GTBank', account: '0123456789', name: 'TOLU EVENTS' });
+  item = (await call('GET', pub)).body.items[0];
+  assert.equal((await call('GET', pub)).body.paystack, true);
   assert.equal((await call('POST', `${pub}/orders`, { item_id: item.id, buyer_name: 'Femi', phone: '08030000002', pay: 'card' })).status, 400, 'email required for card');
   const order = await call('POST', `${pub}/orders`, { item_id: item.id, buyer_name: 'Femi', phone: '08030000002', pay: 'card', email: 'femi@example.com' });
   assert.equal(order.body.pay_url, 'https://checkout.paystack.com/abc');
   assert.equal(calls[0].body.amount, 2500000);
+  assert.equal(calls[0].body.subaccount, 'ACCT_planner');
+  assert.equal(calls[0].body.bearer, 'subaccount');
   const token = order.body.order_url.split('/').pop();
 
   const bad = await call('GET', `/api/o/${token}/paystack?reference=bad-ref`);

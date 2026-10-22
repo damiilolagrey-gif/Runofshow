@@ -7,10 +7,14 @@ async function start(opts = {}) {
   const ctx = createApp({ vapid: null, whatsapp: null, ...opts });
   await new Promise((r) => ctx.server.listen(0, r));
   const base = `http://localhost:${ctx.server.address().port}`;
+  let cookie = '';
   const call = async (method, path, body) => {
-    const res = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+    const res = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', cookie }, body: body && JSON.stringify(body) });
+    const set = res.headers.get('set-cookie');
+    if (set) cookie = set.split(';')[0];
     return { status: res.status, body: await res.json() };
   };
+  await call('POST', '/api/account/signup', { name: 'Tolu Events', email: `p${Math.random()}@example.com`, password: 'longenough' });
   return { ...ctx, base, call, close: () => { ctx.io.close(); ctx.server.close(); } };
 }
 

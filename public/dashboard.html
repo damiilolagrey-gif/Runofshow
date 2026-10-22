@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My events · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="site"><a class="brand" href="/"><span class="mark">R</span>Run of Show</a>
+    <nav><span class="muted small" id="who"></span><button class="btn ghost sm" id="logout">Log out</button></nav></header>
+  <main class="wrap stack">
+    <div class="banner change hidden" id="banner"></div>
+
+    <section class="card card-pad">
+      <div class="row">
+        <div class="grow">
+          <div class="muted small" style="text-transform:uppercase;letter-spacing:.06em;font-weight:700">Your plan</div>
+          <div style="font-size:1.4rem;font-weight:800" id="plan-name"></div>
+          <div class="muted small" id="plan-detail"></div>
+        </div>
+        <button class="btn" id="change-plan">Upgrade</button>
+        <button class="btn ghost sm hidden" id="cancel">Stop renewal</button>
+      </div>
+      <div id="plan-picker" class="hidden" style="margin-top:16px">
+        <div style="text-align:center;margin-bottom:12px"><div class="interval" id="interval"><button data-i="monthly" aria-pressed="true">Monthly</button><button data-i="annually" aria-pressed="false">Yearly · 2 months free</button></div></div>
+        <div class="plans" id="plans"></div>
+      </div>
+    </section>
+
+    <div class="two-col">
+      <section class="card">
+        <div class="section-head"><h2>My events</h2></div>
+        <ul class="events-list" id="events"></ul>
+      </section>
+      <section class="stack">
+        <form class="card card-pad stack" id="create">
+          <h3>New event</h3>
+          <div class="field"><label for="name">Event name</label><input id="name" name="name" required placeholder="Ade &amp; Tolu's wedding"></div>
+          <div class="grid2">
+            <div><label for="date">Date</label><input id="date" name="date" type="date" required></div>
+            <div><label for="type">Start from</label><select id="type" name="type"></select></div>
+          </div>
+          <div class="field"><label for="venue">Venue</label><input id="venue" name="venue" placeholder="Eko Hotel, Victoria Island"></div>
+          <button class="btn primary big" type="submit">Create event</button>
+        </form>
+        <div class="card card-pad stack hidden" id="payout-card">
+          <h3>Aso-ebi payouts</h3>
+          <p class="muted small" style="margin:0" id="payout-help"></p>
+          <div id="payout-current"></div>
+          <form id="payout" class="stack">
+            <div class="field"><label for="bank">Bank</label><select id="bank" name="bank_code" required><option value="">Loading banks…</option></select></div>
+            <div class="field"><label for="acct">Account number</label><input id="acct" name="account_number" inputmode="numeric" maxlength="10" required placeholder="0123456789"></div>
+            <button class="btn" type="submit">Save payout account</button>
+          </form>
+        </div>
+        <form class="card card-pad stack" id="claim">
+          <h3>Have an event from before?</h3>
+          <p class="muted small" style="margin:0">Paste its planner link to add it to your account.</p>
+          <div class="row"><input class="grow" name="link" required placeholder="https://…/p/abc123"><button class="btn" type="submit">Add</button></div>
+        </form>
+      </section>
+    </div>
+  </main>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/site.js"></script>
+  <script src="/js/dashboard.js"></script>
+</body>
+</html>

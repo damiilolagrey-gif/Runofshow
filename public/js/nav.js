@@ -6,7 +6,7 @@ const RosNav = (() => {
 
   function mount(active) {
     const nav = document.getElementById('sections');
-    nav.innerHTML = sections.map(([slug, label]) => `<a class="navlink${slug === active ? ' on' : ''}" href="/p/${token}${slug ? `/${slug}` : ''}">${label}</a>`).join('')
+    nav.innerHTML = '<a class="navlink" href="/dashboard" title="All my events">← My events</a>' + sections.map(([slug, label]) => `<a class="navlink${slug === active ? ' on' : ''}" href="/p/${token}${slug ? `/${slug}` : ''}">${label}</a>`).join('')
       + '<button class="navlink share" id="share-btn" type="button">Share &amp; settings</button>';
     document.body.insertAdjacentHTML('beforeend', `
       <dialog id="share-dlg"><form method="dialog">

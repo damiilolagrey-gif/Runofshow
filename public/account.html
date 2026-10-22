@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run of Show</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="site"><a class="brand" href="/"><span class="mark">R</span>Run of Show</a></header>
+  <main class="auth">
+    <form id="form" class="card card-pad stack">
+      <h1 id="title" style="font-size:1.4rem">Create your planner account</h1>
+      <div class="field signup-only"><label for="name">Your name or business</label><input id="name" name="name" autocomplete="organization" placeholder="Adetola Events"></div>
+      <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" required autocomplete="email"></div>
+      <div class="field signup-only"><label for="phone">WhatsApp number (optional)</label><input id="phone" name="phone" inputmode="tel" autocomplete="tel"></div>
+      <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" required minlength="8" autocomplete="current-password"></div>
+      <button class="btn primary big" type="submit" id="submit">Create account</button>
+      <p class="small muted" style="margin:0;text-align:center" id="switch"></p>
+    </form>
+  </main>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    (() => {
+      const signup = location.pathname === '/signup';
+      const next = new URLSearchParams(location.search).get('next');
+      const dest = next && next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+      const form = document.getElementById('form');
+      document.title = signup ? 'Sign up · Run of Show' : 'Log in · Run of Show';
+      document.getElementById('title').textContent = signup ? 'Create your planner account' : 'Welcome back';
+      document.getElementById('submit').textContent = signup ? 'Create account' : 'Log in';
+      document.querySelectorAll('.signup-only').forEach((el) => el.classList.toggle('hidden', !signup));
+      form.name.required = signup;
+      form.password.autocomplete = signup ? 'new-password' : 'current-password';
+      const q = next ? `?next=${encodeURIComponent(next)}` : '';
+      document.getElementById('switch').innerHTML = signup
+        ? `Already have an account? <a href="/login${q}">Log in</a>` : `New here? <a href="/signup${q}">Create a free account</a>`;
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('submit');
+        btn.disabled = true;
+        try {
+          await Ros.api('POST', `/api/account/${signup ? 'signup' : 'login'}`, Object.fromEntries(new FormData(form)));
+          location.href = dest;
+        } catch (err) {
+          Ros.toast(err.message);
+          btn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

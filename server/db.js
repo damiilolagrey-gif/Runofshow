@@ -122,6 +122,43 @@ function openDb(file) {
       vendor_id INTEGER REFERENCES vendors(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS planners (
+      id               INTEGER PRIMARY KEY,
+      email            TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      name             TEXT NOT NULL,
+      phone            TEXT NOT NULL DEFAULT '',
+      password_hash    TEXT NOT NULL,
+      plan             TEXT NOT NULL DEFAULT 'starter', -- starter | pro | business
+      plan_interval    TEXT,                            -- monthly | annually
+      plan_until       TEXT,                            -- paid plan is active until this time
+      paystack_customer TEXT,
+      subscription_code TEXT,
+      subaccount_code  TEXT,                            -- where their aso-ebi card money settles
+      payout_bank      TEXT NOT NULL DEFAULT '',
+      payout_account   TEXT NOT NULL DEFAULT '',
+      payout_name      TEXT NOT NULL DEFAULT '',
+      created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      token_hash TEXT PRIMARY KEY,
+      planner_id INTEGER NOT NULL REFERENCES planners(id) ON DELETE CASCADE,
+      expires_at TEXT NOT NULL
+    );
+
+    -- Every Paystack reference we've acted on, so a callback and a webhook for the same payment apply once.
+    CREATE TABLE IF NOT EXISTS billing_payments (
+      reference  TEXT PRIMARY KEY,
+      planner_id INTEGER REFERENCES planners(id) ON DELETE SET NULL,
+      kind       TEXT NOT NULL,                 -- plan | event
+      plan       TEXT,
+      event_id   INTEGER,
+      amount     INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+
     CREATE INDEX IF NOT EXISTS cues_event ON cues(event_id, start_min);
     CREATE INDEX IF NOT EXISTS guests_event ON guests(event_id, name);
     CREATE INDEX IF NOT EXISTS orders_event ON asoebi_orders(event_id, id);
@@ -151,6 +188,10 @@ function migrate(db) {
     ['fee', 'INTEGER NOT NULL DEFAULT 0'], // kobo
     ['terms', "TEXT NOT NULL DEFAULT ''"],
     ['accepted_at', 'TEXT'],
+  ]);
+  addColumns('events', [
+    ['planner_id', 'INTEGER REFERENCES planners(id) ON DELETE SET NULL'], // null for events made before accounts
+    ['unlocked', 'INTEGER NOT NULL DEFAULT 0'],                         // paid for on its own (pay-per-event)
   ]);
   const fill = db.prepare('UPDATE events SET public_token = ?, gate_token = ?, couple_token = ? WHERE id = ?');
   for (const { id } of db.prepare('SELECT id FROM events WHERE public_token IS NULL').all()) {

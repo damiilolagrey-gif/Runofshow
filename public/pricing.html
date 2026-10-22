@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pricing · Run of Show</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="site"><a class="brand" href="/"><span class="mark">R</span>Run of Show</a><nav id="site-nav"></nav></header>
+  <main class="landing">
+    <section class="hero-text" style="margin-bottom:24px">
+      <h1>Simple pricing for planners</h1>
+      <p>Vendors, couples, ushers and guests are always free. You pay only for the events you run.</p>
+      <div class="interval" id="interval"><button data-i="monthly" aria-pressed="true">Monthly</button><button data-i="annually" aria-pressed="false">Yearly · 2 months free</button></div>
+    </section>
+    <section class="plans" id="plans"></section>
+    <section class="extras">
+      <div class="card card-pad"><h3>Just one event?</h3><p class="muted" style="margin:6px 0 0">Unlock a single event with unlimited guests for <strong id="event-price"></strong>. Good for couples planning their own wedding.</p></div>
+      <div class="card card-pad"><h3>Aso-ebi card payments</h3><p class="muted" style="margin:6px 0 0">Buyers pay by card or bank through Paystack, and the money goes straight to your account. We keep <strong id="fee"></strong> per sale. Bank transfers you confirm yourself are free.</p></div>
+    </section>
+  </main>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/site.js"></script>
+  <script>
+    (async () => {
+      const who = await RosSite.header();
+      const pricing = await Ros.api('GET', '/api/pricing');
+      document.getElementById('event-price').textContent = Ros.naira(pricing.event_price);
+      document.getElementById('fee').textContent = `${pricing.asoebi_fee_percent}%`;
+      let interval = 'monthly';
+      const draw = () => RosSite.plans(document.getElementById('plans'), pricing, {
+        interval, current: who ? who.plan : null,
+        async onPick(plan, iv) {
+          if (!who) { location.href = '/signup?next=/pricing'; return; }
+          try { location.href = (await Ros.api('POST', '/api/account/subscribe', { plan, interval: iv })).pay_url; } catch (err) { Ros.toast(err.message); }
+        },
+      });
+      document.getElementById('interval').onclick = (e) => {
+        const b = e.target.closest('[data-i]');
+        if (!b) return;
+        interval = b.dataset.i;
+        document.querySelectorAll('#interval [data-i]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        draw();
+      };
+      draw();
+    })();
+  </script>
+</body>
+</html>

@@ -12,6 +12,8 @@ const { Guests } = require('./guests');
 const { AsoEbi, Finance } = require('./money');
 const { Paystack } = require('./paystack');
 const { mountSuite } = require('./suite');
+const { Accounts, planConfig } = require('./accounts');
+const { mountBilling } = require('./billing');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
@@ -35,18 +37,20 @@ function whatsappConfig() {
 }
 
 function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://localhost:3000', vapid = loadVapid(dataDir), whatsapp = whatsappConfig(),
-  paystackKey = process.env.PAYSTACK_SECRET_KEY, fetchImpl } = {}) {
+  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl } = {}) {
   const store = new Store(openDb(dbFile));
   const guests = new Guests(store);
   const asoebi = new AsoEbi(store);
   const finance = new Finance(store);
   const paystack = paystackKey ? new Paystack(paystackKey, fetchImpl) : null;
+  const accounts = new Accounts(store, { enforce: enforceLimits ?? Boolean(paystack), plans });
   const notifier = new Notifier(store, { vapid, whatsapp, baseUrl, fetchImpl });
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server);
 
   app.set('trust proxy', 1);
+  mountBilling(app, { store, accounts, paystack, asoebi }); // before the JSON parser: the Paystack webhook needs the raw body
   app.use(express.json({ limit: '300kb' })); // guest imports can be a few hundred lines
   app.use(express.static(PUBLIC, { index: false }));
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
@@ -108,7 +112,11 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   });
   app.get('/api/push-key', (_req, res) => res.json({ publicKey: vapid?.publicKey || null }));
   app.post('/api/events', (req, res) => {
-    const ev = store.createEvent(req.body || {});
+    if (!req.planner) throw new HttpError(401, 'Please log in to create an event');
+    accounts.assertCanCreateEvent(req.planner, String(req.body?.date || ''));
+    const created = store.createEvent(req.body || {});
+    store.db.prepare('UPDATE events SET planner_id = ? WHERE id = ?').run(req.planner.id, created.id);
+    const ev = store.event(created.id);
     res.status(201).json({ id: ev.id, planner_url: `/p/${ev.planner_token}` });
   });
 
@@ -205,7 +213,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   }));
   app.use('/api/v/:token', vendorApi);
 
-  mountSuite(app, { store, guests, asoebi, finance, paystack, io, broadcast: async (eventId) => broadcast(eventId) });
+  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, io, broadcast: async (eventId) => broadcast(eventId) });
 
   app.use((err, _req, res, _next) => {
     const status = err.status || (err.type === 'entity.parse.failed' ? 400 : 500);
@@ -213,7 +221,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     if (!res.headersSent) res.status(status).json({ error: status === 500 ? 'Something went wrong' : err.message });
   });
 
-  return { app, server, io, store, notifier, guests, asoebi, finance };
+  return { app, server, io, store, notifier, guests, asoebi, finance, accounts };
 }
 
 module.exports = { createApp };
