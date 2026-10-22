@@ -1,5 +1,5 @@
 // App shell cache so vendor pages open with no signal, plus push notifications.
-const CACHE = 'ros-v2';
+const CACHE = 'ros-v3';
 const SHELL = [
   '/', '/index.html', '/planner.html', '/vendor.html', '/css/app.css',
   '/invite.html', '/gate.html', '/js/time.js', '/js/common.js', '/js/planner.js', '/js/vendor.js', '/vendor/jsqr.js',
@@ -26,12 +26,10 @@ self.addEventListener('fetch', (e) => {
     return;
   }
 
-  // Serve from cache, refresh in the background.
-  e.respondWith(caches.open(CACHE).then(async (cache) => {
-    const hit = await cache.match(e.request);
-    const net = fetch(e.request).then((res) => { if (res.ok) cache.put(e.request, res.clone()); return res; }).catch(() => hit);
-    return hit || net;
-  }));
+  // Network first so a new release shows up at once; the cache is only for when there's no signal.
+  e.respondWith(caches.open(CACHE).then((cache) => fetch(e.request)
+    .then((res) => { if (res.ok) cache.put(e.request, res.clone()); return res; })
+    .catch(() => cache.match(e.request))));
 });
 
 self.addEventListener('push', (e) => {

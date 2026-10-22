@@ -67,7 +67,14 @@ const Ros = (() => {
   };
 
   function registerSW() {
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+    if (!('serviceWorker' in navigator)) return;
+    // A page opened under an older release reloads once when the new worker takes over.
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let reloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController && !reloaded && !document.querySelector('dialog[open]')) { reloaded = true; location.reload(); }
+    });
+    navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
   }
 
   function timeAgo(iso) {
