@@ -87,7 +87,7 @@
       const here = v.checked_in_at ? `<span class="chip in">✓ In ${Ros.timeAgo(v.checked_in_at)}</span>` : `<span class="chip ${missing.includes(v) ? 'missing' : ''}">Not here</span>`;
       const invite = `Hi ${v.name}, here is your live run of show for ${event.name}. Check in when you arrive and you'll see any changes instantly: ${vendorLink(v)}`;
       return `<li data-id="${v.id}">
-        <button class="vname" data-act="edit" title="Edit vendor"><div class="name">${Ros.esc(v.name)}</div><div class="muted small">${v.name === v.role ? '' : `${Ros.esc(v.role)} · `}${v.phone ? `+${Ros.esc(v.phone)}` : 'no number'}${v.push_enabled ? ' · 🔔 alerts on' : ''}</div></button>
+        <button class="vname" data-act="edit" title="Edit vendor"><div class="name">${Ros.esc(v.name)}</div><div class="muted small">${v.name === v.role ? '' : `${Ros.esc(v.role)} · `}${v.phone ? `+${Ros.esc(v.phone)}` : 'no number'}${v.push_enabled ? ' · 🔔 alerts on' : ''}${v.rating ? ` · <span class="rated" title="Couple's rating">${'★'.repeat(v.rating)}</span>` : ''}</div></button>
         ${here}
         <div class="acts">
           <button class="btn sm" data-act="copy">Copy link</button>

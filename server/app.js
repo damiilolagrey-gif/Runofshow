@@ -14,6 +14,9 @@ const { Paystack } = require('./paystack');
 const { mountSuite } = require('./suite');
 const { Accounts, planConfig } = require('./accounts');
 const { mountBilling } = require('./billing');
+const { Progress } = require('./progress');
+const { Reviews, profileSlug } = require('./reviews');
+const { mountShowcase } = require('./showcase');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
@@ -42,6 +45,8 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   const guests = new Guests(store);
   const asoebi = new AsoEbi(store);
   const finance = new Finance(store);
+  const progress = new Progress(store);
+  const reviews = new Reviews(store);
   const paystack = paystackKey ? new Paystack(paystackKey, fetchImpl) : null;
   const accounts = new Accounts(store, { enforce: enforceLimits ?? Boolean(paystack), plans });
   const notifier = new Notifier(store, { vapid, whatsapp, baseUrl, fetchImpl });
@@ -60,15 +65,33 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
 
   // ---- live sync ----
 
+  // The planner sees each vendor's review rating next to their name.
+  const plannerView = (eventId) => {
+    const view = store.plannerView(eventId);
+    const ratings = Object.fromEntries(reviews.forEvent(eventId).map((r) => [r.vendor_id, r.rating]));
+    return { ...view, vendors: view.vendors.map((v) => ({ ...v, rating: ratings[v.id] || null })) };
+  };
+
   function broadcast(eventId) {
-    io.to(`planner:${eventId}`).emit('state', store.plannerView(eventId));
+    io.to(`planner:${eventId}`).emit('state', plannerView(eventId));
     for (const v of store.vendors(eventId)) io.to(`vendor:${v.id}`).emit('state', vendorView(v.id));
   }
 
   const vendorView = (vendorId) => {
     const view = store.vendorView(vendorId);
     const v = store.vendor(vendorId);
-    return { ...view, deal: { fee: v.fee, terms: v.terms, accepted_at: v.accepted_at, payments: finance.payments(v.event_id, v.id) } };
+    const review = reviews.forVendor(v.id);
+    const slug = profileSlug(v.phone);
+    return {
+      ...view,
+      deal: { fee: v.fee, terms: v.terms, accepted_at: v.accepted_at, payments: finance.payments(v.event_id, v.id) },
+      reviews: {
+        open: reviews.open(store.event(v.event_id)),
+        requested_at: v.review_requested_at,
+        review: review && { rating: review.rating, body: review.body, reviewer: review.reviewer, url: `/review/${review.token}` },
+        profile_url: slug && `/pro/${slug}`,
+      },
+    };
   };
 
   // Broadcast the change at once, then again after notifications are logged.
@@ -87,7 +110,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
       const ev = store.eventByPlannerToken(planner);
       if (!ev) return socket.disconnect(true);
       socket.join(`planner:${ev.id}`);
-      socket.emit('state', store.plannerView(ev.id));
+      socket.emit('state', plannerView(ev.id));
     } else if (vendor) {
       const v = store.vendorByToken(vendor);
       if (!v) return socket.disconnect(true);
@@ -115,7 +138,8 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     if (!req.planner) throw new HttpError(401, 'Please log in to create an event');
     accounts.assertCanCreateEvent(req.planner, String(req.body?.date || ''));
     const created = store.createEvent(req.body || {});
-    store.db.prepare('UPDATE events SET planner_id = ? WHERE id = ?').run(req.planner.id, created.id);
+    progress.seed(created.id, created.type);
+    store.db.prepare('UPDATE events SET planner_id = ?, contact_phone = ? WHERE id = ?').run(req.planner.id, req.planner.phone || '', created.id);
     const ev = store.event(created.id);
     res.status(201).json({ id: ev.id, planner_url: `/p/${ev.planner_token}` });
   });
@@ -129,7 +153,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   });
   const id = (req, key = 'id') => Number(req.params[key]);
 
-  planner.get('/', (req, res) => res.json(store.plannerView(req.ev.id)));
+  planner.get('/', (req, res) => res.json(plannerView(req.ev.id)));
 
   planner.post('/vendors', wrap(async (req, res) => {
     const v = store.insertVendor(req.ev.id, req.body || {});
@@ -193,6 +217,16 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     res.json({ ok: true });
     await afterChange(req.vendor.event_id);
     io.to(`planner:${req.vendor.event_id}`).emit('changed', 'money');
+    for (const room of [`planner:${req.vendor.event_id}`, `couple:${req.vendor.event_id}`]) io.to(room).emit('changed', 'progress');
+  }));
+  vendorApi.post('/review-request', wrap(async (req, res) => {
+    if (!req.vendor.review_requested_at) {
+      reviews.request(req.vendor);
+      store.log(req.vendor.event_id, 'change', `${req.vendor.name} asked the couple for a review`, req.vendor.id);
+    }
+    res.json({ ok: true });
+    await afterChange(req.vendor.event_id);
+    io.to(`couple:${req.vendor.event_id}`).emit('changed', 'reviews');
   }));
   vendorApi.post('/checkin', wrap(async (req, res) => {
     store.checkIn(req.vendor);
@@ -213,7 +247,8 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   }));
   app.use('/api/v/:token', vendorApi);
 
-  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, io, broadcast: async (eventId) => broadcast(eventId) });
+  mountShowcase(app, { reviews });
+  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, io, broadcast: async (eventId) => broadcast(eventId) });
 
   app.use((err, _req, res, _next) => {
     const status = err.status || (err.type === 'entity.parse.failed' ? 400 : 500);
@@ -221,7 +256,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     if (!res.headersSent) res.status(status).json({ error: status === 500 ? 'Something went wrong' : err.message });
   });
 
-  return { app, server, io, store, notifier, guests, asoebi, finance, accounts };
+  return { app, server, io, store, notifier, guests, asoebi, finance, accounts, progress, reviews };
 }
 
 module.exports = { createApp };

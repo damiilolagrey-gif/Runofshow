@@ -331,3 +331,41 @@ label.inline input { width: auto; min-height: 0; }
   .site nav a[href="/pricing"] { display: none; }
   .site .brand { font-size: .95rem; }
 }
+
+/* reviews */
+.center { text-align: center; }
+.stars { color: var(--accent); letter-spacing: .08em; font-size: 1.3rem; line-height: 1; }
+.review-card { padding: 20px; margin: 0; }
+.review-card blockquote { margin: 12px 0; font-size: 1.1rem; line-height: 1.5; }
+.review-card figcaption { font-size: .9rem; }
+.score { margin: 10px 0 4px; display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; }
+.star-pick { display: flex; gap: 4px; }
+.star-pick button { all: unset; cursor: pointer; font-size: 2rem; line-height: 1; color: var(--line); padding: 2px; border-radius: 6px; }
+.star-pick button.on { color: var(--accent); }
+.star-pick button:focus-visible { outline: 2px solid var(--brand); }
+.rated { color: var(--accent); font-weight: 700; font-size: .85rem; white-space: nowrap; }
+
+/* couple progress */
+.progress-hero { padding: 24px 20px; text-align: center; }
+.progress-hero .brandline { font-size: .8rem; color: var(--muted); margin-bottom: 14px; }
+.progress-hero .brandline strong { color: var(--ink); }
+.progress-hero h2 { font-size: 1.6rem; margin-bottom: 16px; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.ring { position: relative; width: 168px; height: 168px; margin: 0 auto 14px; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .track { stroke: var(--surface-2); }
+.ring .fill { stroke: var(--brand); stroke-linecap: round; transition: stroke-dashoffset .6s ease; }
+.ring .inner { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.ring .pct { font-size: 2.4rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+.ring .of { font-size: .8rem; color: var(--muted); font-weight: 600; margin-top: 4px; white-space: pre-line; text-align: center; line-height: 1.3; }
+.cats { list-style: none; margin: 0; padding: 0; }
+.cats li { display: flex; gap: 12px; align-items: center; padding: 14px 16px; border-top: 1px solid var(--line); }
+.cats li:first-child { border-top: 0; }
+.cats .tick { flex: 0 0 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .9rem; background: var(--surface-2); color: var(--muted); border: 1.5px solid var(--line); }
+.cats .tick.full { background: var(--ok); color: #fff; border-color: var(--ok); }
+.cats .tick.part { color: var(--brand); border-color: var(--brand); }
+.cats .grow { flex: 1; min-width: 0; font-weight: 600; }
+.cats .count { color: var(--muted); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.note-card { background: #241a2b; color: #f4eef7; border-radius: var(--radius); padding: 18px 20px; }
+.note-card .label { font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #d8b56f; margin-bottom: 8px; }
+.note-card p { margin: 0; line-height: 1.55; white-space: pre-wrap; }
+.couple-top { max-width: 560px; margin: 0 auto; width: 100%; }

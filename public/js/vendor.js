@@ -59,6 +59,27 @@
         ${p.paid_at ? '<span class="pill done">Paid</span>' : '<span class="pill">Not paid yet</span>'}</li>`).join('');
     }
 
+    const rv = state.reviews;
+    $('review').classList.toggle('hidden', !rv || (!rv.open && !rv.review));
+    if (rv) {
+      const r = rv.review;
+      $('review-none').classList.toggle('hidden', Boolean(r || rv.requested_at));
+      $('review-asked').classList.toggle('hidden', Boolean(r || !rv.requested_at));
+      $('review-got').classList.toggle('hidden', !r);
+      $('review-status').innerHTML = r ? '<span class="pill ok">Verified</span>' : '';
+      if (r) {
+        const url = location.origin + r.url;
+        $('review-stars').textContent = '★'.repeat(r.rating) + '☆'.repeat(5 - r.rating);
+        $('review-body').textContent = r.body ? `“${r.body}”` : '';
+        $('review-who').textContent = `${r.reviewer || 'The couple'} · ${event.name}`;
+        $('share-wa').href = Ros.waLink('', `${'⭐'.repeat(r.rating)} from my clients${r.body ? `: “${r.body.slice(0, 200)}”` : ''}\n\nVerified review: ${url}`);
+        $('share-copy').dataset.url = url;
+        $('share-view').href = r.url;
+      }
+      $('profile-link').classList.toggle('hidden', !rv.profile_url || !r);
+      if (rv.profile_url) $('profile-link').href = rv.profile_url;
+    }
+
     $('notices-card').classList.toggle('hidden', !state.notices.length);
     $('notices').innerHTML = state.notices.map((n) => `<li><time>${Ros.timeAgo(n.at)}</time>${Ros.esc(n.message.replace(`${event.name}: `, ''))}</li>`).join('');
   }
@@ -127,6 +148,12 @@
     try { await Ros.api('POST', `${base}/accept`); await refresh(); Ros.toast('Thanks! The planner can see you accepted.'); }
     catch (err) { Ros.toast(navigator.onLine ? err.message : 'You need a connection to accept.'); }
   });
+
+  $('ask-review').addEventListener('click', async () => {
+    try { await Ros.api('POST', `${base}/review-request`); await refresh(); Ros.toast('Done. The couple will see your request on their page.'); }
+    catch (err) { Ros.toast(navigator.onLine ? err.message : 'You need a connection for this.'); }
+  });
+  $('share-copy').addEventListener('click', (e) => Ros.copy(e.currentTarget.dataset.url));
 
   // ---------- notices ----------
 
