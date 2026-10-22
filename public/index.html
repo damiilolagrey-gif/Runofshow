@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <main class="hero">
+    <div class="mark">R</div>
+    <h1>One live timeline for every vendor</h1>
+    <p>Build the run of show, send each vendor their private link, and move the whole day with one tap when plans change.</p>
+    <form id="create" class="card card-pad">
+      <div class="field">
+        <label for="name">Event name</label>
+        <input id="name" name="name" required placeholder="Ade &amp; Tolu's wedding">
+      </div>
+      <div class="grid2 field">
+        <div>
+          <label for="date">Date</label>
+          <input id="date" name="date" type="date" required>
+        </div>
+        <div>
+          <label for="type">Start from</label>
+          <select id="type" name="type"></select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="venue">Venue</label>
+        <input id="venue" name="venue" placeholder="Eko Hotel, Victoria Island">
+      </div>
+      <div class="field">
+        <button class="btn primary big" type="submit">Create event</button>
+      </div>
+      <p class="muted small" style="margin:12px 0 0">You'll get a private planner link. Bookmark it, since it's your key to this event.</p>
+    </form>
+  </main>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script>
+    const form = document.getElementById('create');
+    form.date.value = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    Ros.api('GET', '/api/templates').then((list) => {
+      form.type.innerHTML = list.map((t) => `<option value="${t.id}">${Ros.esc(t.label)}${t.cues ? ` (${t.cues} cues, ${t.vendors} vendors)` : ''}</option>`).join('');
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = form.querySelector('button');
+      btn.disabled = true;
+      try {
+        const { planner_url } = await Ros.api('POST', '/api/events', Object.fromEntries(new FormData(form)));
+        location.href = planner_url;
+      } catch (err) {
+        Ros.toast(err.message);
+        btn.disabled = false;
+      }
+    });
+    Ros.registerSW();
+  </script>
+</body>
+</html>

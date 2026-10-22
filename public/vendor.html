@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>My cues · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap" style="max-width:560px">
+      <div class="title">
+        <h1 id="ev-name">Loading…</h1>
+        <div class="muted small" id="who"></div>
+      </div>
+      <span class="clock" id="clock"></span>
+    </div>
+  </header>
+  <main class="vendor-wrap stack">
+    <div class="banner offline hidden" id="offline"><span class="grow">You're offline. Showing the last timeline you saw. Check-ins and done marks will send when you're back.</span></div>
+    <div class="banner change hidden" id="notice" role="alert"><span class="grow" id="notice-text"></span><button class="btn sm ghost" id="notice-x" aria-label="Dismiss">✕</button></div>
+
+    <button class="btn primary big" id="checkin">I've arrived · Check in</button>
+    <div class="card card-pad hidden" id="checked"><span class="pill ok" id="checked-text">Checked in</span></div>
+    <button class="btn big hidden" id="alerts">🔔 Turn on alerts for changes</button>
+
+    <section class="card next hidden" id="next">
+      <h2>Up next for you</h2>
+      <div class="when" id="next-when"></div>
+      <div class="countdown" id="next-count"></div>
+      <div style="font-weight:600;margin-top:4px" id="next-title"></div>
+      <div class="muted small" id="next-with"></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>Your cues</h2><span class="muted small" id="progress"></span></div>
+      <ol class="cues mycues" id="cues"></ol>
+    </section>
+
+    <section class="card hidden" id="notices-card">
+      <div class="section-head"><h2>Changes sent to you</h2></div>
+      <ul class="feed" id="notices"></ul>
+    </section>
+  </main>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/vendor.js"></script>
+</body>
+</html>

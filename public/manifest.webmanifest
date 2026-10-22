@@ -1,0 +1,10 @@
+{
+  "name": "Run of Show",
+  "short_name": "Run of Show",
+  "description": "Live event timeline for planners and vendors",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f3ee",
+  "theme_color": "#5b2a6e",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

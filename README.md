@@ -1,0 +1,53 @@
+# Run of Show
+
+One live timeline for an event. The planner runs the day from one screen; each vendor
+(DJ, MC, caterer, photographer…) gets a private link that shows only their cues, lets
+them check in on arrival and mark cues done, and pings them when their times change.
+
+## Run it
+
+```sh
+npm install
+npm start            # http://localhost:3000
+npm test
+```
+
+Needs Node 22.13+ (uses the built-in `node:sqlite`). Copy `.env.example` to set things up;
+everything works without any keys.
+
+## How it works
+
+- **Create an event** at `/` from a template: Nigerian wedding reception (13 vendors,
+  16 cues), corporate event, conference, or blank.
+- **Planner screen** at `/p/<planner-token>`: live timeline, who's checked in, what's
+  overdue, and an activity feed. "Running late…" or "Move…" on a cue pushes it and every
+  unfinished cue after it by any number of minutes, then messages each affected vendor
+  once with their new times.
+- **Vendor screen** at `/v/<vendor-token>`: no signup. Check in, see the next cue with a
+  countdown, mark cues done. Opens and works offline (check-ins and done marks queue
+  until the signal is back).
+- **Notifications**, per vendor, on every channel they have:
+  - browser push (vendor taps "Turn on alerts"),
+  - WhatsApp via the Meta Cloud API when `WHATSAPP_*` is set,
+  - otherwise logged in the activity feed with a one-tap "Send on WhatsApp" link for the planner.
+- **Preview a time**: add `?clock=17:40` to either URL to see the day as it would look then.
+
+The links are the credentials: anyone with the planner link can edit the event, and a
+vendor link only exposes that vendor's cues.
+
+## Layout
+
+```
+server/
+  app.js        HTTP routes + Socket.IO rooms (planner:<event>, vendor:<id>)
+  store.js      SQLite data access and the timeline rules (shift, done, check-in)
+  notify.js     turns changes into one message per vendor; push + WhatsApp senders
+  templates.js  starter timelines
+public/         plain HTML/JS, no build step; sw.js is the offline cache + push handler
+test/           node:test API and socket tests
+```
+
+## Not in the MVP yet
+
+Planner accounts and billing, venues with multiple planners, editing templates in the UI,
+SMS fallback, and multi-day events.

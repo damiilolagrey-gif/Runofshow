@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planner · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="title">
+        <h1 id="ev-name">Loading…</h1>
+        <div class="muted small" id="ev-sub"></div>
+      </div>
+      <span class="pill" id="overall">…</span>
+      <span class="clock" id="clock" title="Current time"></span>
+      <span class="pill late hidden" id="offline">Offline</span>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="stats">
+      <div class="card stat" id="st-late"><div class="n">0</div><div class="l">Cues overdue</div></div>
+      <div class="card stat" id="st-in"><div class="n">0</div><div class="l">Vendors checked in</div></div>
+      <div class="card stat" id="st-done"><div class="n">0</div><div class="l">Cues done</div></div>
+      <div class="card stat" id="st-next"><div class="n">–</div><div class="l">Next cue</div></div>
+    </section>
+
+    <nav class="tabs" role="tablist">
+      <button class="btn" role="tab" data-tab="timeline" aria-selected="true">Timeline</button>
+      <button class="btn" role="tab" data-tab="vendors">Vendors</button>
+      <button class="btn" role="tab" data-tab="activity">Activity</button>
+    </nav>
+
+    <div class="layout">
+      <section class="card active" data-panel="timeline">
+        <div class="section-head">
+          <h2>Timeline</h2>
+          <div class="row">
+            <button class="btn sm" id="shift-next" title="Push every unfinished cue later">Running late…</button>
+            <button class="btn sm primary" id="add-cue">+ Cue</button>
+          </div>
+        </div>
+        <ol class="cues" id="cues"></ol>
+      </section>
+
+      <aside class="side stack">
+        <section class="card" data-panel="vendors">
+          <div class="section-head">
+            <h2>Vendors</h2>
+            <button class="btn sm primary" id="add-vendor">+ Vendor</button>
+          </div>
+          <ul class="vlist" id="vendors"></ul>
+        </section>
+        <section class="card" data-panel="activity">
+          <div class="section-head"><h2>Activity</h2></div>
+          <ul class="feed" id="feed"></ul>
+        </section>
+      </aside>
+    </div>
+    <p class="muted small" style="margin-top:24px">
+      Tip: add <code>?clock=17:40</code> to the address to preview the day as if it were 5:40pm.
+    </p>
+  </main>
+
+  <dialog id="cue-dlg">
+    <form method="dialog">
+      <h3 id="cue-dlg-title">Cue</h3>
+      <div class="field"><label for="c-title">What happens</label><input id="c-title" name="title" required></div>
+      <div class="grid2 field">
+        <div><label for="c-time">Time</label><input id="c-time" name="time" required placeholder="5:15pm"></div>
+        <div><label for="c-dur">Minutes</label><input id="c-dur" name="duration" type="number" min="0" step="5" value="15"></div>
+      </div>
+      <div class="field"><label>Who's on it</label><div class="checks" id="c-vendors"></div></div>
+      <div class="field"><label for="c-notes">Notes for vendors</label><textarea id="c-notes" name="notes" placeholder="Play &quot;Ife&quot; by Tems for the entrance"></textarea></div>
+      <p class="muted small" id="c-hint"></p>
+      <div class="foot">
+        <button class="btn danger ghost hidden" value="delete" id="c-delete" formnovalidate>Delete</button>
+        <span style="flex:1"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="shift-dlg">
+    <form method="dialog">
+      <h3>Move the timeline</h3>
+      <p class="muted small" id="s-from"></p>
+      <div class="quick" id="s-quick">
+        <button class="btn sm" type="button" data-min="-15">15 min earlier</button>
+        <button class="btn sm" type="button" data-min="10">+10</button>
+        <button class="btn sm" type="button" data-min="15">+15</button>
+        <button class="btn sm" type="button" data-min="20">+20</button>
+        <button class="btn sm" type="button" data-min="30">+30</button>
+        <button class="btn sm" type="button" data-min="40">+40</button>
+        <button class="btn sm" type="button" data-min="60">+1 hr</button>
+      </div>
+      <div class="field" style="margin-top:12px"><label for="s-min">Minutes (negative moves earlier)</label><input id="s-min" name="minutes" type="number" step="5" required></div>
+      <p class="small" id="s-preview"></p>
+      <div class="foot">
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="save">Move and notify</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="vendor-dlg">
+    <form method="dialog">
+      <h3 id="v-dlg-title">Vendor</h3>
+      <div class="field"><label for="v-name">Name</label><input id="v-name" name="name" required placeholder="DJ Spinall"></div>
+      <div class="field"><label for="v-role">Role</label><input id="v-role" name="role" required placeholder="DJ" list="roles"></div>
+      <datalist id="roles"><option>MC</option><option>DJ</option><option>Live band</option><option>Caterer</option><option>Small chops</option><option>Photographer</option><option>Videographer</option><option>Decorator</option><option>Cake</option><option>Ushers</option><option>Security</option><option>Makeup</option><option>AV</option></datalist>
+      <div class="field"><label for="v-phone">WhatsApp number</label><input id="v-phone" name="phone" inputmode="tel" placeholder="0803 123 4567"></div>
+      <div class="foot">
+        <button class="btn danger ghost hidden" value="delete" id="v-delete" formnovalidate>Remove</button>
+        <span style="flex:1"></span>
+        <button class="btn" value="cancel" formnovalidate>Cancel</button>
+        <button class="btn primary" value="save">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/planner.js"></script>
+</body>
+</html>
