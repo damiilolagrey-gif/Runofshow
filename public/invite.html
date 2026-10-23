@@ -31,6 +31,7 @@
       <div class="muted small" id="party-line"></div>
       <button class="btn ghost sm" id="change">Change my answer</button>
     </section>
+    <section class="card card-pad hidden" id="info"><div class="muted small" style="text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">From the hosts</div><div id="info-text" style="white-space:pre-wrap"></div></section>
     <section class="card card-pad hidden" id="declined" style="text-align:center">
       <div style="font-weight:700">Thanks for letting us know. You'll be missed!</div>
       <button class="btn ghost sm" id="change2" style="margin-top:8px">Change my answer</button>
@@ -53,6 +54,8 @@
         $('ev-when').textContent = [Ros.fmtDate(e.date), e.venue].filter(Boolean).join(' · ');
         $('hello').textContent = `Hello ${g.name},`;
         $('party').value = g.party_size;
+        $('info').classList.toggle('hidden', !e.guest_info);
+        $('info-text').textContent = e.guest_info || '';
         const show = editing ? 'ask' : g.rsvp === 'yes' ? 'pass' : g.rsvp === 'no' ? 'declined' : 'ask';
         for (const id of ['ask', 'pass', 'declined']) $(id).classList.toggle('hidden', id !== show);
         if (show === 'pass') {

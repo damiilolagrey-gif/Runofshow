@@ -17,6 +17,10 @@ const { mountBilling } = require('./billing');
 const { Progress } = require('./progress');
 const { Reviews, profileSlug } = require('./reviews');
 const { mountShowcase } = require('./showcase');
+const { WhatsApp } = require('./whatsapp');
+const { Assistant } = require('./assistant');
+const { Seating } = require('./seating');
+const { GuestComms } = require('./guestcomms');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
@@ -34,13 +38,14 @@ function loadVapid(dataDir) {
 }
 
 function whatsappConfig() {
-  const { WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE, WHATSAPP_TEMPLATE_LANG } = process.env;
+  const { WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_TEMPLATE, WHATSAPP_TEMPLATE_LANG, WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN } = process.env;
   if (!WHATSAPP_TOKEN || !WHATSAPP_PHONE_NUMBER_ID) return null;
-  return { token: WHATSAPP_TOKEN, phoneNumberId: WHATSAPP_PHONE_NUMBER_ID, template: WHATSAPP_TEMPLATE, lang: WHATSAPP_TEMPLATE_LANG };
+  return { token: WHATSAPP_TOKEN, phoneNumberId: WHATSAPP_PHONE_NUMBER_ID, template: WHATSAPP_TEMPLATE, lang: WHATSAPP_TEMPLATE_LANG,
+    appSecret: WHATSAPP_APP_SECRET, verifyToken: WHATSAPP_VERIFY_TOKEN };
 }
 
 function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://localhost:3000', vapid = loadVapid(dataDir), whatsapp = whatsappConfig(),
-  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl } = {}) {
+  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl, assistant = new Assistant(), tickEvery = 60_000 } = {}) {
   const store = new Store(openDb(dbFile));
   const guests = new Guests(store);
   const asoebi = new AsoEbi(store);
@@ -49,13 +54,33 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   const reviews = new Reviews(store);
   const paystack = paystackKey ? new Paystack(paystackKey, fetchImpl) : null;
   const accounts = new Accounts(store, { enforce: enforceLimits ?? Boolean(paystack), plans });
-  const notifier = new Notifier(store, { vapid, whatsapp, baseUrl, fetchImpl });
+  const wa = whatsapp ? new WhatsApp(whatsapp, fetchImpl) : null;
+  const notifier = new Notifier(store, { vapid, whatsapp: wa, baseUrl });
+  const seating = new Seating(store, guests);
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server);
 
+  const comms = new GuestComms({ store, guests, whatsapp: wa, assistant, baseUrl, onChange: (eventId, topic) => {
+    for (const room of [`planner:${eventId}`, `couple:${eventId}`, `gate:${eventId}`, `seating:${eventId}`]) io.to(room).emit('changed', topic);
+  } });
+
   app.set('trust proxy', 1);
   mountBilling(app, { store, accounts, paystack, asoebi }); // before the JSON parser: the Paystack webhook needs the raw body
+
+  // WhatsApp Cloud API webhook: Meta checks the verify token once, then posts guests' messages signed with the app secret.
+  app.get('/api/whatsapp/webhook', (req, res) => {
+    const ok = wa?.config.verifyToken && req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === wa.config.verifyToken;
+    if (!ok) return res.status(403).end();
+    res.type('text/plain').send(String(req.query['hub.challenge'] || ''));
+  });
+  app.post('/api/whatsapp/webhook', express.raw({ type: '*/*', limit: '500kb' }), (req, res) => {
+    if (!wa || !wa.validSignature(req.body, req.get('x-hub-signature-256'))) return res.status(401).end();
+    res.sendStatus(200); // answer at once; Meta retries slow webhooks
+    let payload;
+    try { payload = JSON.parse(req.body.toString('utf8')); } catch { return; }
+    comms.handleWebhook(payload).catch((err) => console.error('whatsapp webhook:', err));
+  });
   app.use(express.json({ limit: '300kb' })); // guest imports can be a few hundred lines
   app.use(express.static(PUBLIC, { index: false }));
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
@@ -115,6 +140,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
       const v = store.vendorByToken(vendor);
       if (!v) return socket.disconnect(true);
       socket.join(`vendor:${v.id}`);
+      if (v.can_seat) socket.join(`seating:${v.event_id}`);
       socket.emit('state', vendorView(v.id));
     } else if (socket.handshake.auth?.couple || socket.handshake.auth?.gate) {
       const { couple, gate } = socket.handshake.auth;
@@ -248,7 +274,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   app.use('/api/v/:token', vendorApi);
 
   mountShowcase(app, { reviews });
-  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, io, broadcast: async (eventId) => broadcast(eventId) });
+  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, io, broadcast: async (eventId) => broadcast(eventId) });
 
   app.use((err, _req, res, _next) => {
     const status = err.status || (err.type === 'entity.parse.failed' ? 400 : 500);
@@ -256,7 +282,14 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     if (!res.headersSent) res.status(status).json({ error: status === 500 ? 'Something went wrong' : err.message });
   });
 
-  return { app, server, io, store, notifier, guests, asoebi, finance, accounts, progress, reviews };
+  // Passes go out on the morning of each event, at the time the owner chose.
+  if (tickEvery) {
+    const timer = setInterval(() => comms.tick().catch((err) => console.error('pass sender:', err)), tickEvery);
+    timer.unref();
+    server.on('close', () => clearInterval(timer));
+  }
+
+  return { app, server, io, store, notifier, guests, asoebi, finance, accounts, progress, reviews, seating, comms };
 }
 
 module.exports = { createApp };

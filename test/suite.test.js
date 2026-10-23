@@ -195,7 +195,7 @@ test('budget: vendor-linked lines use fee and payments, others use spent', async
   assert.equal(after.owed_to_vendors, 200000000 + 50000000 + 40000000);
 });
 
-test('couple view shows totals but no private tokens or terms', async (t) => {
+test('couple view shows totals but no planner link, guest tokens or terms', async (t) => {
   const { call, p, ev } = await start(t);
   await call('POST', `${p}/guests`, { name: 'Guest One', rsvp: 'yes' });
   const c = (await call('GET', `/api/c/${ev.couple_token}`)).body;
@@ -203,7 +203,7 @@ test('couple view shows totals but no private tokens or terms', async (t) => {
   assert.equal(c.vendors.length, 13);
   const json = JSON.stringify(c);
   assert.ok(!json.includes(ev.planner_token));
-  assert.ok(!json.includes(ev.gate_token));
+  assert.equal(c.event.gate_token, ev.gate_token); // owners hand the usher scanner to their own ushers
   assert.ok(!json.includes('"token"'));
   assert.equal((await call('GET', '/api/c/nope')).status, 404);
 });

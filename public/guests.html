@@ -27,7 +27,12 @@
       <div class="card stat"><div class="n" id="s-no">0</div><div class="l">Can't come</div></div>
       <div class="card stat"><div class="n" id="s-arrived">0</div><div class="l">Arrived</div></div>
     </section>
-    <section class="card">
+    <section class="card card-pad row" id="comms-bar">
+      <div class="grow"><strong>WhatsApp</strong><div class="muted small" id="comms-line">Send invites, read replies, and send each guest their table and QR pass on the day.</div></div>
+      <button class="btn" id="open-invites">✉️ Invites &amp; replies</button>
+      <button class="btn primary" id="open-passes">🎟️ Day-of passes</button>
+    </section>
+    <section class="card" style="margin-top:16px">
       <div class="toolbar">
         <input type="search" id="q" placeholder="Search name, phone, table or code">
         <select id="filter" aria-label="Filter">
@@ -70,6 +75,34 @@
     <textarea name="text" rows="10" placeholder="Chief Adeyemi, 08031234567, 2, Bride, 1&#10;Mrs Okafor, 08099998888, 1, Groom, 12"></textarea>
     <div class="foot"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Import</button></div>
   </form></dialog>
+  <dialog id="invites-dlg" class="wide"><form method="dialog">
+    <h3>Invites and replies</h3>
+    <div id="inv-auto"></div>
+    <h4 class="small muted" style="margin:16px 0 6px;text-transform:uppercase;letter-spacing:.06em">Not replied yet</h4>
+    <ul class="feed bordered" id="inv-list"></ul>
+    <h4 class="small muted" style="margin:16px 0 6px;text-transform:uppercase;letter-spacing:.06em">Latest WhatsApp replies</h4>
+    <ul class="feed bordered" id="inv-replies"></ul>
+    <div class="foot"><button class="btn" value="cancel">Close</button></div>
+  </form></dialog>
+
+  <dialog id="passes-dlg" class="wide"><form method="dialog">
+    <h3>Table numbers and QR passes</h3>
+    <p class="muted small" style="margin-top:0">On the day, every guest who said yes gets a WhatsApp with their table number and a link to their QR code for the gate.</p>
+    <div class="card card-pad stack" style="box-shadow:none">
+      <label class="inline"><input type="checkbox" id="pass-auto"> Send automatically on the event day at <input id="pass-time" type="time" style="width:auto;min-height:0;padding:4px 8px"></label>
+      <div class="muted small" id="pass-auto-note"></div>
+    </div>
+    <div class="row" style="margin-top:12px"><span class="grow" id="pass-summary"></span><button class="btn primary" type="button" id="pass-send">Send now</button></div>
+    <ul class="feed bordered" id="pass-list" style="margin-top:10px"></ul>
+    <div class="foot"><button class="btn" value="cancel">Close</button></div>
+  </form></dialog>
+
+  <dialog id="chat-dlg"><form method="dialog">
+    <h3 id="chat-title">Messages</h3>
+    <ul class="chat" id="chat-list"></ul>
+    <div class="foot"><button class="btn" value="cancel">Close</button></div>
+  </form></dialog>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/time.js"></script>
   <script src="/js/common.js"></script>

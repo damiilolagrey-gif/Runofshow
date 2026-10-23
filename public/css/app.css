@@ -369,3 +369,29 @@ label.inline input { width: auto; min-height: 0; }
 .note-card .label { font-size: .72rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #d8b56f; margin-bottom: 8px; }
 .note-card p { margin: 0; line-height: 1.55; white-space: pre-wrap; }
 .couple-top { max-width: 560px; margin: 0 auto; width: 100%; }
+
+/* guest messaging */
+dialog.wide { width: min(680px, calc(100vw - 32px)); }
+.feed.bordered { border: 1px solid var(--line); border-radius: 10px; max-height: 300px; overflow: auto; }
+.feed.bordered li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.feed.bordered li .grow { flex: 1 1 180px; min-width: 0; }
+.chat { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 360px; overflow: auto; }
+.chat li { max-width: 85%; padding: 8px 12px; border-radius: 12px; font-size: .9rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.chat li.in { align-self: flex-start; background: var(--surface-2); border: 1px solid var(--line); }
+.chat li.out { align-self: flex-end; background: var(--ok-bg); color: var(--ink); }
+.chat time { display: block; font-size: .7rem; color: var(--muted); margin-top: 2px; }
+
+/* table plan */
+.tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.table-card { padding: 12px 14px; }
+.table-card .head { display: flex; gap: 8px; align-items: baseline; }
+.table-card .head strong { font-size: 1.1rem; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.table-card.full .count { color: var(--ok); }
+.table-card.over .count { color: var(--late); }
+.table-card ul { list-style: none; margin: 8px 0 0; padding: 0; font-size: .88rem; }
+.table-card li { display: flex; gap: 6px; align-items: center; padding: 3px 0; border-top: 1px dashed var(--line); }
+.table-card li:first-child { border-top: 0; }
+.table-card li span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.unseated li { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; align-items: center; }
+.unseated select { min-height: 36px; padding: 4px 8px; }
+.table-card select.move { flex: 0 0 92px; width: 92px; min-height: 28px; padding: 0 4px; font-size: .8rem; }

@@ -48,6 +48,9 @@
     }).join('') || '<li class="cue"><div></div><div class="muted">No cues assigned to you yet.</div></li>';
     prevStarts = Object.fromEntries(cues.map((c) => [c.id, c.start_min]));
 
+    $('seating-link').classList.toggle('hidden', !vendor.can_seat);
+    $('seating-link').href = `/v/${token}/tables`;
+
     const deal = state.deal;
     $('deal').classList.toggle('hidden', !deal || (!deal.fee && !deal.terms && !deal.payments.length));
     if (deal) {

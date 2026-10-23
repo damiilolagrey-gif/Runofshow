@@ -6,7 +6,7 @@ const { HttpError, normalizePhone } = require('./store');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
-function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, io, broadcast }) {
+function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, io, broadcast }) {
   // Card payment for aso-ebi needs the event's planner to have a payout account, so the money reaches them.
   const payoutFor = (ev) => {
     const owner = ev.planner_id && accounts.get(ev.planner_id);
@@ -19,10 +19,12 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
 
   // Tell every screen watching this event which part changed; they refetch what they show.
   const changed = (eventId, topic) => {
-    for (const room of [`planner:${eventId}`, `couple:${eventId}`, `gate:${eventId}`]) io.to(room).emit('changed', topic);
+    for (const room of [`planner:${eventId}`, `couple:${eventId}`, `gate:${eventId}`, `seating:${eventId}`]) io.to(room).emit('changed', topic);
   };
 
-  for (const section of ['guests', 'asoebi', 'money', 'progress']) app.get(`/p/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'asoebi', 'money', 'progress', 'tables']) app.get(`/p/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'asoebi', 'tables']) app.get(`/c/:token/${section}`, page(`${section}.html`));
+  app.get('/v/:token/tables', page('tables.html'));
   app.get('/i/:token', page('invite.html'));
   app.get('/e/:token', page('event.html'));
   app.get('/o/:token', page('order.html'));
@@ -30,7 +32,7 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
   app.get('/c/:token', page('couple.html'));
   app.get('/vendor/jsqr.js', (_req, res) => res.sendFile(require.resolve('jsqr/dist/jsQR.js')));
 
-  const publicEvent = (e) => ({ name: e.name, date: e.date, venue: e.venue, type: e.type });
+  const publicEvent = (e) => ({ name: e.name, date: e.date, venue: e.venue, type: e.type, guest_info: e.guest_info });
 
   // ---------- planner ----------
 
@@ -84,64 +86,138 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
     changed(req.ev.id, 'progress');
   });
 
-  // guests
-  p.get('/guests', (req, res) => res.json({ guests: guests.list(req.ev.id), stats: guests.stats(req.ev.id) }));
-  p.post('/guests', (req, res) => {
-    accounts.assertGuestRoom(req.ev);
-    const g = guests.add(req.ev.id, req.body || {});
-    res.status(201).json({ id: g.id });
-    changed(req.ev.id, 'guests');
-  });
-  p.post('/guests/import', (req, res) => {
-    accounts.assertGuestRoom(req.ev, String(req.body?.text || '').split(/\r?\n/).filter((l) => l.trim() && !/^\s*name\s*[,\t]/i.test(l)).length);
-    const added = guests.import(req.ev.id, req.body?.text);
-    store.log(req.ev.id, 'change', `Imported ${added} guests`);
-    res.status(201).json({ added });
-    changed(req.ev.id, 'guests');
-  });
-  p.patch('/guests/:id', (req, res) => {
-    guests.update(req.ev.id, num(req), req.body || {});
-    res.json({ ok: true });
-    changed(req.ev.id, 'guests');
-  });
-  p.delete('/guests/:id', (req, res) => {
-    guests.remove(req.ev.id, num(req));
-    res.json({ ok: true });
-    changed(req.ev.id, 'guests');
-  });
-  p.post('/guests/:id/arrived', (req, res) => {
-    if (req.body?.arrived === false) guests.undoAdmit(req.ev.id, num(req));
-    else guests.admit(guests.in(req.ev.id, num(req)));
-    res.json({ ok: true });
-    changed(req.ev.id, 'guests');
-  });
+  // ---------- guests, aso-ebi and the table plan: the planner and the couple both run these ----------
 
-  // aso-ebi
-  p.get('/asoebi', (req, res) => res.json({ items: asoebi.items(req.ev.id), orders: asoebi.orders(req.ev.id), stats: asoebi.stats(req.ev.id), paystack: Boolean(payoutFor(req.ev)), billing: Boolean(paystack) }));
-  p.post('/asoebi/items', (req, res) => {
-    res.status(201).json({ id: asoebi.addItem(req.ev.id, req.body || {}) });
-    changed(req.ev.id, 'asoebi');
-  });
-  p.patch('/asoebi/items/:id', (req, res) => {
-    asoebi.updateItem(req.ev.id, num(req), req.body || {});
-    res.json({ ok: true });
-    changed(req.ev.id, 'asoebi');
-  });
-  p.post('/asoebi/orders/:id/paid', (req, res) => {
-    asoebi.setPaid(asoebi.orderIn(req.ev.id, num(req)), Boolean(req.body?.paid));
-    res.json({ ok: true });
-    changed(req.ev.id, 'asoebi');
-  });
-  p.post('/asoebi/orders/:id/collected', (req, res) => {
-    asoebi.setCollected(asoebi.orderIn(req.ev.id, num(req)), Boolean(req.body?.collected));
-    res.json({ ok: true });
-    changed(req.ev.id, 'asoebi');
-  });
-  p.delete('/asoebi/orders/:id', (req, res) => {
-    asoebi.removeOrder(req.ev.id, num(req));
-    res.json({ ok: true });
-    changed(req.ev.id, 'asoebi');
-  });
+  function ownerRoutes(r) {
+    // guests
+    r.get('/guests', (req, res) => res.json({ guests: guests.list(req.ev.id), stats: guests.stats(req.ev.id) }));
+    r.post('/guests', (req, res) => {
+      accounts.assertGuestRoom(req.ev);
+      const g = guests.add(req.ev.id, req.body || {});
+      res.status(201).json({ id: g.id });
+      changed(req.ev.id, 'guests');
+    });
+    r.post('/guests/import', (req, res) => {
+      accounts.assertGuestRoom(req.ev, String(req.body?.text || '').split(/\r?\n/).filter((l) => l.trim() && !/^\s*name\s*[,\t]/i.test(l)).length);
+      const added = guests.import(req.ev.id, req.body?.text);
+      store.log(req.ev.id, 'change', `Imported ${added} guests`);
+      res.status(201).json({ added });
+      changed(req.ev.id, 'guests');
+    });
+    r.patch('/guests/:id', (req, res) => {
+      guests.update(req.ev.id, num(req), req.body || {});
+      res.json({ ok: true });
+      changed(req.ev.id, 'guests');
+    });
+    r.delete('/guests/:id', (req, res) => {
+      guests.remove(req.ev.id, num(req));
+      res.json({ ok: true });
+      changed(req.ev.id, 'guests');
+    });
+    r.post('/guests/:id/arrived', (req, res) => {
+      if (req.body?.arrived === false) guests.undoAdmit(req.ev.id, num(req));
+      else guests.admit(guests.in(req.ev.id, num(req)));
+      res.json({ ok: true });
+      changed(req.ev.id, 'guests');
+    });
+
+    // aso-ebi
+    r.get('/asoebi', (req, res) => res.json({ items: asoebi.items(req.ev.id), orders: asoebi.orders(req.ev.id), stats: asoebi.stats(req.ev.id), paystack: Boolean(payoutFor(req.ev)), billing: Boolean(paystack) }));
+    r.post('/asoebi/items', (req, res) => {
+      res.status(201).json({ id: asoebi.addItem(req.ev.id, req.body || {}) });
+      changed(req.ev.id, 'asoebi');
+    });
+    r.patch('/asoebi/items/:id', (req, res) => {
+      asoebi.updateItem(req.ev.id, num(req), req.body || {});
+      res.json({ ok: true });
+      changed(req.ev.id, 'asoebi');
+    });
+    r.post('/asoebi/orders/:id/paid', (req, res) => {
+      asoebi.setPaid(asoebi.orderIn(req.ev.id, num(req)), Boolean(req.body?.paid));
+      res.json({ ok: true });
+      changed(req.ev.id, 'asoebi');
+    });
+    r.post('/asoebi/orders/:id/collected', (req, res) => {
+      asoebi.setCollected(asoebi.orderIn(req.ev.id, num(req)), Boolean(req.body?.collected));
+      res.json({ ok: true });
+      changed(req.ev.id, 'asoebi');
+    });
+    r.delete('/asoebi/orders/:id', (req, res) => {
+      asoebi.removeOrder(req.ev.id, num(req));
+      res.json({ ok: true });
+      changed(req.ev.id, 'asoebi');
+    });
+
+    // table plan
+    r.get('/tables', (req, res) => res.json(seating.plan(req.ev.id)));
+    seatingRoutes(r);
+
+    // invites and replies
+    r.get('/invites', (req, res) => res.json({ guests: comms.inviteList(req.ev), replies: comms.replies(req.ev.id), whatsapp: Boolean(comms.whatsapp), ai: assistant.usesAI }));
+    r.post('/invites/send', wrap(async (req, res) => res.json(await comms.sendInvites(req.ev, { resend: Boolean(req.body?.resend) }))));
+    r.post('/invites/:id/sent', (req, res) => {
+      comms.markInvited(req.ev.id, num(req));
+      res.json({ ok: true });
+      changed(req.ev.id, 'guests');
+    });
+    r.get('/guests/:id/messages', (req, res) => res.json(comms.messages(req.ev.id, guests.in(req.ev.id, num(req)).id)));
+
+    // passes on the day: table number and QR link
+    r.get('/passes', (req, res) => {
+      const e = req.ev;
+      res.json({ guests: comms.passList(e), whatsapp: Boolean(comms.whatsapp), auto: Boolean(e.passes_auto), time: e.passes_time, sent_at: e.passes_sent_at, date: e.date });
+    });
+    r.post('/passes/send', wrap(async (req, res) => res.json(await comms.sendPasses(req.ev, { resend: Boolean(req.body?.resend) }))));
+    r.post('/passes/:id/sent', (req, res) => {
+      comms.markPassSent(req.ev.id, num(req));
+      res.json({ ok: true });
+      changed(req.ev.id, 'guests');
+    });
+
+    // what guests see and the bot knows, plus RSVP and aso-ebi settings
+    r.patch('/guest-settings', (req, res) => {
+      const b = req.body || {};
+      const e = req.ev;
+      if (b.passes_time !== undefined && !/^([01]\d|2[0-3]):[0-5]\d$/.test(b.passes_time)) throw new HttpError(400, 'Time must look like 09:00');
+      store.db.prepare('UPDATE events SET guest_info = ?, rsvp_open = ?, pay_details = ?, passes_auto = ?, passes_time = ? WHERE id = ?').run(
+        String(b.guest_info ?? e.guest_info).slice(0, 1500), b.rsvp_open === undefined ? e.rsvp_open : (b.rsvp_open ? 1 : 0),
+        String(b.pay_details ?? e.pay_details).slice(0, 1000), b.passes_auto === undefined ? e.passes_auto : (b.passes_auto ? 1 : 0), b.passes_time ?? e.passes_time, e.id,
+      );
+      res.json({ ok: true });
+      changed(e.id, 'settings');
+    });
+  }
+
+  // The planner, the couple and vendors they trust with seating can all change the plan.
+  function seatingRoutes(r) {
+    const seatChanged = (eventId) => changed(eventId, 'guests');
+    r.post('/tables', (req, res) => {
+      const b = req.body || {};
+      const out = b.count ? { added: seating.addMany(req.ev.id, b) } : { id: seating.addTable(req.ev.id, b) };
+      res.status(201).json(out);
+      seatChanged(req.ev.id);
+    });
+    r.post('/tables/auto', (req, res) => {
+      res.json(seating.autoSeat(req.ev.id));
+      seatChanged(req.ev.id);
+    });
+    r.post('/tables/seat', (req, res) => {
+      seating.seat(req.ev.id, req.body?.guest_id, req.body?.table_label);
+      res.json({ ok: true });
+      seatChanged(req.ev.id);
+    });
+    r.patch('/tables/:id', (req, res) => {
+      seating.updateTable(req.ev.id, num(req), req.body || {});
+      res.json({ ok: true });
+      seatChanged(req.ev.id);
+    });
+    r.delete('/tables/:id', (req, res) => {
+      seating.removeTable(req.ev.id, num(req));
+      res.json({ ok: true });
+      seatChanged(req.ev.id);
+    });
+  }
+  ownerRoutes(p);
 
   // vendor deals, payments, budget
   p.get('/money', (req, res) => res.json(finance.summary(req.ev.id)));
@@ -189,6 +265,30 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
     changed(req.ev.id, 'money');
   });
   app.use('/api/p/:token', p);
+
+  // ---------- the couple (or whoever owns the event) runs guests, aso-ebi and seating too ----------
+
+  const c = express.Router({ mergeParams: true });
+  c.use((req, _res, next) => {
+    req.ev = store.db.prepare('SELECT * FROM events WHERE couple_token = ?').get(req.params.token);
+    next(req.ev ? undefined : new HttpError(404, 'Link not found'));
+  });
+  ownerRoutes(c);
+  app.use('/api/c/:token', c);
+
+  // ---------- vendors the planner trusts with the table plan ----------
+
+  const seatVendor = express.Router({ mergeParams: true });
+  seatVendor.use('/tables', (req, _res, next) => {
+    const v = store.vendorByToken(req.params.token);
+    if (!v) return next(new HttpError(404, 'Link not found'));
+    if (!v.can_seat) return next(new HttpError(403, 'Ask the planner to give you access to the table plan'));
+    req.ev = store.event(v.event_id);
+    next();
+  });
+  seatVendor.get('/tables', (req, res) => res.json({ ...seating.plan(req.ev.id), event: publicEvent(req.ev) }));
+  seatingRoutes(seatVendor);
+  app.use('/api/v/:token', seatVendor);
 
   // ---------- guest invite ----------
 
@@ -310,7 +410,7 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
     const owner = ev.planner_id && accounts.get(ev.planner_id);
     const byVendor = Object.fromEntries(reviews.forEvent(ev.id).map((r) => [r.vendor_id, r]));
     res.json({
-      event: { ...publicEvent(ev), public_token: ev.public_token },
+      event: { ...publicEvent(ev), public_token: ev.public_token, gate_token: ev.gate_token, rsvp_open: ev.rsvp_open, pay_details: ev.pay_details, guest_info: ev.guest_info },
       planner: { name: owner?.name || '', phone: ev.contact_phone || owner?.phone || '' },
       progress: { ...progress.summary(ev.id), couple_names: ev.couple_names, note: ev.couple_note },
       reviews_open: reviews.open(ev),

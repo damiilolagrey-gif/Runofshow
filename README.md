@@ -48,8 +48,21 @@ when you have Meta Cloud API access.
 - **Payments & budget** (`/p/<token>/money`): each vendor's fee, agreement text (vendor taps
   Accept on their page), deposits and balances with due dates; budget lines that fill in
   automatically from linked vendors.
-- **Couple's page** (`/c/<couple-token>`): read-only view of budget, payments, RSVPs,
-  aso-ebi and the day's timeline.
+- **Couple's page** (`/c/<couple-token>`): the event owners' own tabs. Overview (progress,
+  budget, the day), **Guests & RSVPs**, **Table plan** and **Aso-ebi** run on the same data as the
+  planner's pages, so either side can send invites, read replies, seat guests or take orders.
+- **Table plan** (`/p/<token>/tables`, `/c/<token>/tables`): add tables (or 30 at once), pick a
+  table per guest, or auto-seat by side keeping each party together. The planner can tick "Can work
+  on the table plan" on a vendor (say the usher team or decorator); that vendor then gets a Table
+  plan button on their page, without guests' phone numbers or invite links.
+- **WhatsApp RSVP assistant**: with a WhatsApp Business number connected, invites go out from it,
+  and guests RSVP by just replying ("yes o, 3 of us", "we no fit come"). The assistant updates the
+  list (never above the party size on the invite), answers questions from the "Information for
+  guests" setting, and logs the chat. It uses Claude when `ANTHROPIC_API_KEY` is set, and a
+  keyword reader otherwise.
+- **Day-of passes**: on the morning of the event (09:00 Lagos time by default, changeable) every
+  guest who said yes gets a WhatsApp with their table number and the link to their QR pass. Without
+  WhatsApp Business, the Day-of passes list has a WhatsApp button per guest instead.
 - **Couple's progress** (`/p/<token>/progress`): a checklist by category (starter list per
   event type). Items linked to a vendor tick themselves when that vendor accepts their agreement.
   The couple's page opens with a % ring, each category's "x of y", a note from the planner and a

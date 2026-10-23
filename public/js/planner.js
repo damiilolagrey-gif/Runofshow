@@ -208,6 +208,7 @@
     f.name.value = v?.name || '';
     f.role.value = v?.role || '';
     f.phone.value = v?.phone ? `+${v.phone}` : '';
+    f.can_seat.checked = Boolean(v?.can_seat);
     $('v-delete').classList.toggle('hidden', !v);
     vDlg.showModal();
   }
@@ -218,7 +219,7 @@
       return;
     }
     if (vDlg.returnValue !== 'save') return;
-    const body = { name: f.name.value.trim(), role: f.role.value.trim(), phone: f.phone.value };
+    const body = { name: f.name.value.trim(), role: f.role.value.trim(), phone: f.phone.value, can_seat: f.can_seat.checked };
     if (editingVendor) await act('PATCH', `/vendors/${editingVendor.id}`, body, 'Saved');
     else await act('POST', '/vendors', body, 'Vendor added. Send them their link.');
   });
