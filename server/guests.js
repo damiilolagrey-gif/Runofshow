@@ -60,6 +60,8 @@ class Guests {
     const g = clean({ ...before, ...body });
     this.db.prepare('UPDATE guests SET name = ?, phone = ?, party_size = ?, side = ?, table_label = ?, rsvp = ?, rsvp_at = CASE WHEN ? != rsvp THEN ? ELSE rsvp_at END WHERE id = ?')
       .run(g.name, g.phone, g.party_size, g.side, g.table_label, g.rsvp, g.rsvp, new Date().toISOString(), id);
+    // The host set the party size, so that becomes what the invite admits.
+    if (body.party_size !== undefined && g.party_size !== before.party_size) this.db.prepare('UPDATE guests SET invited_party = NULL WHERE id = ?').run(id);
     return this.get(id);
   }
 

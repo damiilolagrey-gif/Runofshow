@@ -183,6 +183,30 @@ function openDb(file) {
       sort       INTEGER NOT NULL DEFAULT 0
     );
 
+    -- Tables for the seating plan; guests point at one by its label (guests.table_label).
+    CREATE TABLE IF NOT EXISTS seating_tables (
+      id       INTEGER PRIMARY KEY,
+      event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      label    TEXT NOT NULL,
+      seats    INTEGER NOT NULL DEFAULT 10,
+      sort     INTEGER NOT NULL DEFAULT 0,
+      UNIQUE (event_id, label)
+    );
+
+    -- WhatsApp conversation with each guest, in both directions.
+    CREATE TABLE IF NOT EXISTS guest_messages (
+      id        INTEGER PRIMARY KEY,
+      event_id  INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      guest_id  INTEGER REFERENCES guests(id) ON DELETE CASCADE,
+      direction TEXT NOT NULL,               -- in | out
+      body      TEXT NOT NULL,
+      at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS guest_messages_guest ON guest_messages(guest_id, id);
+
+    -- WhatsApp retries webhooks, so each incoming message id is handled once.
+    CREATE TABLE IF NOT EXISTS wa_inbound (id TEXT PRIMARY KEY, at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
+
     CREATE INDEX IF NOT EXISTS checklist_event ON checklist(event_id, sort);
     CREATE INDEX IF NOT EXISTS cues_event ON cues(event_id, start_min);
     CREATE INDEX IF NOT EXISTS guests_event ON guests(event_id, name);
@@ -221,6 +245,18 @@ function migrate(db) {
     ['couple_names', "TEXT NOT NULL DEFAULT ''"],  // greeting on the couple's page
     ['couple_note', "TEXT NOT NULL DEFAULT ''"],   // "Note from your planner"
     ['contact_phone', "TEXT NOT NULL DEFAULT ''"], // "Message your planner" WhatsApp number
+    ['guest_info', "TEXT NOT NULL DEFAULT ''"],    // dress code, parking, colours: shown on invites and used by the RSVP bot
+    ['passes_auto', 'INTEGER NOT NULL DEFAULT 1'],  // send table numbers and QR passes on the morning of the event
+    ['passes_time', "TEXT NOT NULL DEFAULT '09:00'"],
+    ['passes_sent_at', 'TEXT'],
+  ]);
+  addColumns('guests', [
+    ['invited_at', 'TEXT'],
+    ['pass_sent_at', 'TEXT'],
+    ['invited_party', 'INTEGER'], // party size on the invite, kept when the guest RSVPs for fewer
+  ]);
+  addColumns('vendors', [
+    ['can_seat', 'INTEGER NOT NULL DEFAULT 0'], // may see the guest list and edit the table plan
   ]);
   const fill = db.prepare('UPDATE events SET public_token = ?, gate_token = ?, couple_token = ? WHERE id = ?');
   for (const { id } of db.prepare('SELECT id FROM events WHERE public_token IS NULL').all()) {

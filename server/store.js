@@ -76,10 +76,10 @@ class Store {
     return this.db.prepare('SELECT * FROM vendors WHERE event_id = ? ORDER BY id').all(eventId);
   }
 
-  updateVendor(eventId, vendorId, { name, role, phone }) {
+  updateVendor(eventId, vendorId, { name, role, phone, can_seat }) {
     const v = this.vendorIn(eventId, vendorId);
-    this.db.prepare('UPDATE vendors SET name = ?, role = ?, phone = ? WHERE id = ?').run(
-      name ?? v.name, role ?? v.role, phone === undefined ? v.phone : normalizePhone(phone), v.id,
+    this.db.prepare('UPDATE vendors SET name = ?, role = ?, phone = ?, can_seat = ? WHERE id = ?').run(
+      name ?? v.name, role ?? v.role, phone === undefined ? v.phone : normalizePhone(phone), can_seat === undefined ? v.can_seat : (can_seat ? 1 : 0), v.id,
     );
     return this.vendor(v.id);
   }

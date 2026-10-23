@@ -13,6 +13,7 @@
   <header class="topbar"><div class="wrap">
     <div class="title"><h1 id="ev-name">Loading…</h1><div class="muted small" id="ev-sub"></div></div>
     <span class="pill plain" id="countdown"></span>
+    <nav class="sections" id="sections"></nav>
   </div></header>
   <main class="wrap stack">
     <section class="couple-top stack" id="progress">
@@ -84,8 +85,9 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/time.js"></script>
   <script src="/js/common.js"></script>
+  <script src="/js/nav.js"></script>
   <script>
-    /* global io */
+    /* global io, RosNav */
     (() => {
       const token = location.pathname.split('/').pop();
       const $ = (id) => document.getElementById(id);
@@ -207,6 +209,7 @@
       const socket = io({ auth: { couple: token } });
       let t;
       socket.on('changed', () => { clearTimeout(t); t = setTimeout(load, 200); });
+      RosNav.mount('');
       load();
       Ros.registerSW();
     })();

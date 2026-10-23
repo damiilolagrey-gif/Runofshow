@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Table plan · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="title">
+        <h1 id="ev-name">Loading…</h1>
+        <div class="muted small" id="ev-sub"></div>
+      </div>
+      <nav class="sections" id="sections"></nav>
+    </div>
+  </header>
+  <main class="wrap">
+    <section class="stats five">
+      <div class="card stat"><div class="n" id="s-tables">0</div><div class="l">Tables</div></div>
+      <div class="card stat"><div class="n" id="s-seats">0</div><div class="l">Seats</div></div>
+      <div class="card stat"><div class="n" id="s-coming">0</div><div class="l">People coming</div></div>
+      <div class="card stat"><div class="n" id="s-seated">0</div><div class="l">Seated</div></div>
+      <div class="card stat" id="s-unseated-card"><div class="n" id="s-unseated">0</div><div class="l">Still need a seat</div></div>
+    </section>
+    <div class="banner change hidden" id="denied" style="margin-bottom:16px"><span class="grow" id="denied-text"></span></div>
+    <div class="two-col side-left" id="plan">
+      <section class="card">
+        <div class="section-head"><h2>Need a seat</h2><button class="btn sm" id="auto">Auto-seat</button></div>
+        <p class="muted small" style="margin:10px 16px 0">Guests who said yes. Pick a table for each, or let auto-seat fill tables by side and keep each party together.</p>
+        <label class="inline small" style="margin:8px 16px 0"><input type="checkbox" id="show-pending"> Also show guests who haven’t replied</label>
+        <ul class="feed unseated" id="unseated"></ul>
+      </section>
+      <section class="stack">
+        <div class="card card-pad row">
+          <span class="grow muted small" id="unknown"></span>
+          <button class="btn sm" id="add-many">Add several tables</button>
+          <button class="btn sm primary" id="add-table">+ Table</button>
+        </div>
+        <div class="tables-grid" id="tables"></div>
+        <div class="card empty hidden" id="empty">No tables yet. Add them one by one, or add several at once (for example 30 tables of 10).</div>
+      </section>
+    </div>
+  </main>
+
+  <dialog id="table-dlg"><form method="dialog">
+    <h3 id="table-title">Table</h3>
+    <div class="grid2">
+      <div class="field"><label for="t-label">Name or number</label><input id="t-label" name="label" required maxlength="40" placeholder="12 or VIP"></div>
+      <div class="field"><label for="t-seats">Seats</label><input id="t-seats" name="seats" type="number" min="1" max="100" value="10"></div>
+    </div>
+    <div class="foot"><button class="btn danger ghost" value="delete" formnovalidate>Delete</button><span style="flex:1"></span><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Save</button></div>
+  </form></dialog>
+
+  <dialog id="many-dlg"><form method="dialog">
+    <h3>Add several tables</h3>
+    <div class="grid2">
+      <div class="field"><label for="m-count">How many tables</label><input id="m-count" name="count" type="number" min="1" max="200" value="20"></div>
+      <div class="field"><label for="m-seats">Seats at each</label><input id="m-seats" name="seats" type="number" min="1" max="100" value="10"></div>
+    </div>
+    <p class="muted small">They’re numbered 1, 2, 3 and so on, skipping numbers you already have.</p>
+    <div class="foot"><button class="btn" value="cancel" formnovalidate>Cancel</button><button class="btn primary" value="save">Add tables</button></div>
+  </form></dialog>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/section.js"></script>
+  <script src="/js/tables.js"></script>
+</body>
+</html>

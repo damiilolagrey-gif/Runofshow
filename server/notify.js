@@ -3,12 +3,11 @@ const { fmtTime, fmtShift } = require('../public/js/time');
 
 // Turns timeline changes into one message per affected vendor, then sends it on every channel that vendor has.
 class Notifier {
-  constructor(store, { vapid, whatsapp, baseUrl, fetchImpl = fetch } = {}) {
+  constructor(store, { vapid, whatsapp, baseUrl } = {}) {
     this.store = store;
     this.vapid = vapid;
-    this.whatsapp = whatsapp; // { token, phoneNumberId, template, lang } or null
+    this.whatsapp = whatsapp; // a WhatsApp client, or null
     this.baseUrl = baseUrl;
-    this.fetch = fetchImpl;
     if (vapid) webpush.setVapidDetails(vapid.subject, vapid.publicKey, vapid.privateKey);
   }
 
@@ -71,25 +70,9 @@ class Notifier {
     }
   }
 
-  // WhatsApp Cloud API. Messages outside a 24h customer window must use an approved template,
-  // so set WHATSAPP_TEMPLATE to a template with one body variable ({{1}}) for production.
-  async sendWhatsApp(vendor, text) {
-    const { token, phoneNumberId, template, lang = 'en' } = this.whatsapp;
-    const body = template
-      ? { messaging_product: 'whatsapp', to: vendor.phone, type: 'template', template: { name: template, language: { code: lang }, components: [{ type: 'body', parameters: [{ type: 'text', text }] }] } }
-      : { messaging_product: 'whatsapp', to: vendor.phone, type: 'text', text: { body: `${text}\n${this.baseUrl}/v/${vendor.token}` } };
-    try {
-      const res = await this.fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) console.warn(`whatsapp to vendor ${vendor.id} failed:`, res.status, await res.text());
-      return res.ok;
-    } catch (err) {
-      console.warn(`whatsapp to vendor ${vendor.id} failed:`, err.message);
-      return false;
-    }
+  sendWhatsApp(vendor, text) {
+    // With a template the link has to be part of the one variable; plain text can carry it too.
+    return this.whatsapp.send(vendor.phone, `${text}\n${this.baseUrl}/v/${vendor.token}`);
   }
 }
 

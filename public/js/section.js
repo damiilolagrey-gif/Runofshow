@@ -1,8 +1,8 @@
 /* global Ros, RosNav, io */
 // Shared plumbing for planner section pages: event header, data loading, live refresh.
 const RosSection = (() => {
-  const token = RosNav.token;
-  const api = (method, path, body) => Ros.api(method, `/api/p/${token}${path}`, body).catch((err) => {
+  const { token, mode } = RosNav;
+  const api = (method, path, body) => Ros.api(method, `${RosNav.api}${path}`, body).catch((err) => {
     Ros.toast(navigator.onLine ? err.message : "You're offline. Changes need a connection.");
     throw err;
   });
@@ -10,14 +10,14 @@ const RosSection = (() => {
   // load() fetches this page's data and render() draws it; both re-run when another screen changes `topic`.
   function start({ section, topics, load }) {
     RosNav.mount(section);
-    Ros.api('GET', `/api/p/${token}`).then(({ event }) => {
+    Ros.api('GET', RosNav.api).then(({ event }) => {
       document.getElementById('ev-name').textContent = event.name;
       document.getElementById('ev-sub').textContent = [Ros.fmtDate(event.date), event.venue].filter(Boolean).join(' · ');
       document.title = `${event.name} · Run of Show`;
     }).catch((err) => { document.getElementById('ev-name').textContent = err.status === 404 ? 'Event not found' : 'Could not load'; });
     let pending = null;
     const refresh = () => { clearTimeout(pending); pending = setTimeout(load, 150); };
-    const socket = io({ auth: { planner: token } });
+    const socket = io({ auth: { p: { planner: token }, c: { couple: token }, v: { vendor: token } }[mode] });
     socket.on('changed', (topic) => { if (topics.includes(topic)) refresh(); });
     socket.on('connect', refresh);
     load();
@@ -46,5 +46,5 @@ const RosSection = (() => {
     };
   }
 
-  return { token, api, start, dialog };
+  return { token, mode, api, start, dialog };
 })();
