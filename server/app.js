@@ -21,6 +21,7 @@ const { WhatsApp } = require('./whatsapp');
 const { Assistant } = require('./assistant');
 const { Seating } = require('./seating');
 const { GuestComms } = require('./guestcomms');
+const { PlanAssistant, normalize: normalizePlan } = require('./planai');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
@@ -45,7 +46,7 @@ function whatsappConfig() {
 }
 
 function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://localhost:3000', vapid = loadVapid(dataDir), whatsapp = whatsappConfig(),
-  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl, assistant = new Assistant(), tickEvery = 60_000 } = {}) {
+  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl, assistant = new Assistant(), planner: planAssistant = new PlanAssistant(), tickEvery = 60_000 } = {}) {
   const store = new Store(openDb(dbFile));
   const guests = new Guests(store);
   const asoebi = new AsoEbi(store);
@@ -160,11 +161,29 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     res.json(Object.entries(templates).map(([id, t]) => ({ id, label: t.label, vendors: t.vendors.length, cues: t.cues.length })));
   });
   app.get('/api/push-key', (_req, res) => res.json({ publicKey: vapid?.publicKey || null }));
+  // The planning assistant drafts a plan from a description; nothing is saved until the planner creates the event.
+  app.get('/api/events/draft', (req, res) => res.json({ ai: planAssistant.usesAI }));
+  app.post('/api/events/draft', wrap(async (req, res) => {
+    if (!req.planner) throw new HttpError(401, 'Please log in first');
+    const b = req.body || {};
+    if (!String(b.brief || '').trim()) throw new HttpError(400, 'Describe the event first');
+    res.json(await planAssistant.draft(b));
+  }));
+
   app.post('/api/events', (req, res) => {
     if (!req.planner) throw new HttpError(401, 'Please log in to create an event');
     accounts.assertCanCreateEvent(req.planner, String(req.body?.date || ''));
-    const created = store.createEvent(req.body || {});
-    progress.seed(created.id, created.type);
+    const plan = req.body?.plan ? normalizePlan(req.body.plan) : null;
+    const created = store.tx(() => {
+      const ev = store.createEvent(req.body || {}, plan && { vendors: plan.vendors, cues: plan.cues });
+      progress.seed(ev.id, ev.type, plan?.checklist);
+      if (plan) {
+        const byRole = Object.fromEntries(store.vendors(ev.id).map((v) => [v.role, v.id]));
+        for (const l of plan.budget) finance.addLine(ev.id, { category: l.category, planned: l.naira * 100, vendor_id: (l.role && byRole[l.role]) || null });
+        if (plan.guest_info) store.db.prepare('UPDATE events SET guest_info = ? WHERE id = ?').run(plan.guest_info, ev.id);
+      }
+      return ev;
+    });
     store.db.prepare('UPDATE events SET planner_id = ?, contact_phone = ? WHERE id = ?').run(req.planner.id, req.planner.phone || '', created.id);
     const ev = store.event(created.id);
     res.status(201).json({ id: ev.id, planner_url: `/p/${ev.planner_token}` });

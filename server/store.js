@@ -15,7 +15,9 @@ class Store {
     this.db = db;
   }
 
+  // Nested calls join the outer transaction.
   tx(fn) {
+    if (this.db.isTransaction) return fn();
     this.db.exec('BEGIN');
     try {
       const out = fn();
@@ -29,8 +31,10 @@ class Store {
 
   // ---- events ----
 
-  createEvent({ name, type = 'blank', date, venue = '' }) {
-    const tpl = templates[type];
+  // `plan` (vendors and cues from the planning assistant) replaces the type's template.
+  createEvent({ name, type = 'blank', date, venue = '' }, plan = null) {
+    const tpl = plan || templates[type];
+    if (plan && !templates[type]) type = 'blank';
     if (!tpl) throw new HttpError(400, `Unknown event type "${type}"`);
     if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(date || '')) throw new HttpError(400, 'Name and date (YYYY-MM-DD) are required');
     return this.tx(() => {

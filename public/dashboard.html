@@ -31,6 +31,33 @@
       </div>
     </section>
 
+    <section class="card hidden" id="draft-card">
+      <div class="section-head"><h2>Draft plan</h2><span class="pill" id="draft-source"></span></div>
+      <div class="card-pad stack">
+        <div id="draft-head"></div>
+        <section class="stats" id="draft-stats"></section>
+        <div class="two-col">
+          <div>
+            <h3 class="small muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">The day</h3>
+            <ol class="cues bordered-list" id="draft-cues"></ol>
+          </div>
+          <div class="stack">
+            <div><h3 class="small muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Vendors to book</h3><div class="chips" id="draft-vendors"></div></div>
+            <div><h3 class="small muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Budget</h3>
+              <div class="tbl-wrap bordered-list"><table class="tbl"><tbody id="draft-budget"></tbody></table></div></div>
+            <div><h3 class="small muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Checklist</h3><ul class="cats bordered-list" id="draft-checklist"></ul></div>
+            <div id="draft-info"></div>
+          </div>
+        </div>
+        <div class="row" style="justify-content:flex-end">
+          <button class="btn ghost" type="button" id="draft-discard">Discard</button>
+          <button class="btn" type="button" id="draft-again">Draft again</button>
+          <button class="btn primary" type="button" id="draft-create">Create this event</button>
+        </div>
+        <p class="muted small" style="margin:0;text-align:right">You can change everything after it's created.</p>
+      </div>
+    </section>
+
     <div class="two-col">
       <section class="card">
         <div class="section-head"><h2>My events</h2></div>
@@ -45,7 +72,13 @@
             <div><label for="type">Start from</label><select id="type" name="type"></select></div>
           </div>
           <div class="field"><label for="venue">Venue</label><input id="venue" name="venue" placeholder="Eko Hotel, Victoria Island"></div>
-          <button class="btn primary big" type="submit">Create event</button>
+          <div class="field"><label for="brief">✨ Describe the event <span class="muted">(optional)</span></label>
+            <textarea id="brief" name="brief" rows="4" maxlength="4000" placeholder="300 guests, ₦15m budget. Church at 10am, reception from 2pm with a live band and a DJ. Colours emerald and gold. The couple want a grand entrance and lots of small chops."></textarea>
+            <div class="muted small" style="margin-top:4px" id="brief-help">The planning assistant drafts the timeline, vendors, checklist and budget split for you to review.</div></div>
+          <div class="row">
+            <button class="btn primary grow" type="button" id="draft" style="justify-content:center;min-height:48px">✨ Draft the plan</button>
+            <button class="btn" type="submit" style="min-height:48px">Create from template</button>
+          </div>
         </form>
         <div class="card card-pad stack hidden" id="payout-card">
           <h3>Aso-ebi payouts</h3>
