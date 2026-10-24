@@ -93,6 +93,7 @@
           <button class="btn sm" data-act="copy">Copy link</button>
           <a class="btn sm" target="_blank" rel="noopener" href="${waLink(v.phone, invite)}">Send on WhatsApp</a>
           ${v.checked_in_at ? '' : '<button class="btn sm ghost" data-act="checkin">Mark here</button>'}
+          <button class="btn sm ${v.phone ? 'ghost' : ''}" data-act="match" title="Suggest vendors for this role">${v.phone ? 'Find another' : '✨ Find a match'}</button>
         </div>
       </li>`;
     }).join('') || '<li class="muted">No vendors yet.</li>';
@@ -247,6 +248,55 @@
     }
     if (btn.dataset.act === 'checkin') await act('POST', `/vendors/${v.id}/checkin`, null, `${v.name} marked as here`);
     if (btn.dataset.act === 'edit') openVendor(v);
+    if (btn.dataset.act === 'match') openMatch(v);
+  });
+
+  // ---------- vendor matching ----------
+
+  const mDlg = $('match-dlg');
+  let matchFor = null;
+  let matches = [];
+  function openMatch(v) {
+    matchFor = v;
+    $('m-title').textContent = `Find a ${v.role}`;
+    $('m-need').value = '';
+    mDlg.showModal();
+    findMatches();
+  }
+  async function findMatches() {
+    const v = matchFor;
+    const need = $('m-need').value.trim();
+    $('m-list').innerHTML = '<li class="muted">Looking…</li>';
+    $('m-note').textContent = '';
+    let r;
+    try { r = await Ros.api('GET', `${base}/vendors/${v.id}/matches?need=${encodeURIComponent(need)}`); }
+    catch (err) { $('m-list').innerHTML = `<li class="muted">${Ros.esc(err.message)}</li>`; return; }
+    if (matchFor !== v) return;
+    matches = r.candidates;
+    $('m-note').textContent = v.phone ? `${v.name} already has this role. Message someone here to line up a backup, then add them as a new vendor.` : r.source === 'ai' ? 'Matched to what you need by reading couples’ reviews.'
+      : need && !r.ai ? 'Ranked by reviews that mention your words.' : '';
+    $('m-list').innerHTML = matches.map((c, i) => `<li>
+        <div class="grow">
+          <div><strong>${Ros.esc(c.name)}</strong> <span class="muted small">${Ros.esc(c.role)}${c.city ? ` · ${Ros.esc(c.city)}` : ''}</span></div>
+          <div class="small">${c.rating ? `<span class="rated">${'★'.repeat(Math.round(c.rating))}</span> ${c.rating} from ${c.reviews} verified review${c.reviews === 1 ? '' : 's'}` : '<span class="muted">No reviews yet</span>'}</div>
+          <div class="small">${Ros.esc(c.reason)}</div>
+          ${c.quote ? `<div class="muted small quote">“${Ros.esc(c.quote)}”</div>` : ''}
+        </div>
+        <div class="acts">
+          <a class="btn sm ghost" href="${c.profile_url}" target="_blank" rel="noopener">Reviews</a>
+          <a class="btn sm" href="${waLink(c.phone, `Hi ${c.name}, I'm planning ${state.event.name} on ${Ros.fmtDate(state.event.date)}${state.event.venue ? ` at ${state.event.venue}` : ''}. Are you available as our ${v.role}?`)}" target="_blank" rel="noopener">Ask on WhatsApp</a>
+          ${v.phone ? '' : `<button class="btn sm primary" type="button" data-use="${i}">Use</button>`}
+        </div>
+      </li>`).join('') || `<li class="muted">No ${Ros.esc(v.role)} to suggest yet. Vendors you add to your events, and vendors who list themselves from their page, show up here.</li>`;
+  }
+  $('m-find').addEventListener('click', findMatches);
+  $('m-need').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); findMatches(); } });
+  $('m-list').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-use]');
+    if (!b) return;
+    const c = matches[Number(b.dataset.use)];
+    await act('PATCH', `/vendors/${matchFor.id}`, { name: c.name, phone: c.phone }, `${c.name} is now your ${matchFor.role}. Send them their link.`);
+    mDlg.close();
   });
   document.querySelector('.tabs').addEventListener('click', (e) => {
     const tab = e.target.closest('[data-tab]');

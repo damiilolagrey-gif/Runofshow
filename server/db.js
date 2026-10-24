@@ -204,6 +204,13 @@ function openDb(file) {
     );
     CREATE INDEX IF NOT EXISTS guest_messages_guest ON guest_messages(guest_id, id);
 
+    -- Vendors who choose to be found by other planners. Keyed by phone, like their public profile.
+    CREATE TABLE IF NOT EXISTS vendor_directory (
+      phone     TEXT PRIMARY KEY,
+      city      TEXT NOT NULL DEFAULT '',
+      listed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+
     -- WhatsApp retries webhooks, so each incoming message id is handled once.
     CREATE TABLE IF NOT EXISTS wa_inbound (id TEXT PRIMARY KEY, at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
 
@@ -214,6 +221,7 @@ function openDb(file) {
     CREATE INDEX IF NOT EXISTS vpay_event ON vendor_payments(event_id, vendor_id);
     CREATE INDEX IF NOT EXISTS budget_event ON budget_lines(event_id);
     CREATE INDEX IF NOT EXISTS vendors_event ON vendors(event_id);
+    CREATE INDEX IF NOT EXISTS vendors_phone ON vendors(phone);
     CREATE INDEX IF NOT EXISTS activity_event ON activity(event_id, id);
   `);
   migrate(db);
@@ -254,6 +262,7 @@ function migrate(db) {
     ['invited_at', 'TEXT'],
     ['pass_sent_at', 'TEXT'],
     ['invited_party', 'INTEGER'], // party size on the invite, kept when the guest RSVPs for fewer
+    ['thanked_at', 'TEXT'],       // thank-you message sent after the event
   ]);
   addColumns('vendors', [
     ['can_seat', 'INTEGER NOT NULL DEFAULT 0'], // may see the guest list and edit the table plan

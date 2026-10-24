@@ -127,6 +127,20 @@
     </form>
   </dialog>
 
+  <dialog id="match-dlg" class="wide">
+    <form method="dialog">
+      <h3 id="m-title">Find a vendor</h3>
+      <p class="muted small" style="margin-top:0">From vendors you’ve worked with and vendors who listed themselves, ranked by couples’ verified reviews.</p>
+      <div class="row">
+        <input id="m-need" class="grow" maxlength="300" placeholder="What you need, e.g. speaks Yoruba, keeps the crowd lively, good with elderly guests">
+        <button class="btn primary" type="button" id="m-find">Find</button>
+      </div>
+      <p class="muted small" id="m-note"></p>
+      <ul class="matches" id="m-list"></ul>
+      <div class="foot"><button class="btn" value="cancel" formnovalidate>Close</button></div>
+    </form>
+  </dialog>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="/js/time.js"></script>
   <script src="/js/common.js"></script>

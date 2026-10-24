@@ -398,3 +398,16 @@ dialog.wide { width: min(680px, calc(100vw - 32px)); }
 .bordered-list { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
 #draft-cues { max-height: 520px; overflow: auto; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* vendor matching */
+.matches { list-style: none; margin: 8px 0 0; padding: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.matches li { display: flex; gap: 12px; align-items: center; padding: 12px; border-top: 1px solid var(--line); }
+.matches li:first-child { border-top: 0; }
+.matches .quote { margin-top: 4px; font-style: italic; }
+.matches .acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 560px) { .matches li { flex-direction: column; align-items: stretch; } .matches .acts { justify-content: flex-start; } }
+
+/* recap */
+.thanks { display: grid; gap: 12px; }
+.thanks textarea { width: 100%; min-height: 128px; }
+.thanks .who { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }

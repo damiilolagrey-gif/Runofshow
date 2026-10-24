@@ -62,6 +62,16 @@
         ${p.paid_at ? '<span class="pill done">Paid</span>' : '<span class="pill">Not paid yet</span>'}</li>`).join('');
     }
 
+    const ls = state.listing;
+    $('listing').classList.toggle('hidden', !ls);
+    if (ls && !document.getElementById('listing').contains(document.activeElement)) {
+      $('listing-role').textContent = vendor.role;
+      $('listing-on').checked = ls.listed;
+      $('listing-city').value = ls.city;
+      $('listing-status').innerHTML = ls.listed ? '<span class="pill ok">Listed</span>' : '';
+      $('listing-hint').textContent = ls.has_phone ? 'Planners you’ve worked with can always find you.' : 'Ask the planner to add your WhatsApp number first.';
+      $('listing-save').disabled = !ls.has_phone;
+    }
     const rv = state.reviews;
     $('review').classList.toggle('hidden', !rv || (!rv.open && !rv.review));
     if (rv) {
@@ -155,6 +165,14 @@
   $('ask-review').addEventListener('click', async () => {
     try { await Ros.api('POST', `${base}/review-request`); await refresh(); Ros.toast('Done. The couple will see your request on their page.'); }
     catch (err) { Ros.toast(navigator.onLine ? err.message : 'You need a connection for this.'); }
+  });
+  $('listing-save').addEventListener('click', async () => {
+    try {
+      const r = await Ros.api('POST', `${base}/listing`, { listed: $('listing-on').checked, city: $('listing-city').value });
+      document.activeElement.blur();
+      await refresh();
+      Ros.toast(r.listed ? 'You’re listed. Planners can now find you.' : 'You’re no longer listed.');
+    } catch (err) { Ros.toast(navigator.onLine ? err.message : 'You need a connection for this.'); }
   });
   $('share-copy').addEventListener('click', (e) => Ros.copy(e.currentTarget.dataset.url));
 
