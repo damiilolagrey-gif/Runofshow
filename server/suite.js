@@ -6,7 +6,7 @@ const { HttpError, normalizePhone } = require('./store');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
-function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, io, broadcast }) {
+function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, matching, recap, io, broadcast }) {
   // Card payment for aso-ebi needs the event's planner to have a payout account, so the money reaches them.
   const payoutFor = (ev) => {
     const owner = ev.planner_id && accounts.get(ev.planner_id);
@@ -22,8 +22,8 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
     for (const room of [`planner:${eventId}`, `couple:${eventId}`, `gate:${eventId}`, `seating:${eventId}`]) io.to(room).emit('changed', topic);
   };
 
-  for (const section of ['guests', 'asoebi', 'money', 'progress', 'tables']) app.get(`/p/:token/${section}`, page(`${section}.html`));
-  for (const section of ['guests', 'asoebi', 'tables']) app.get(`/c/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'asoebi', 'money', 'progress', 'tables', 'recap']) app.get(`/p/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'asoebi', 'tables', 'recap']) app.get(`/c/:token/${section}`, page(`${section}.html`));
   app.get('/v/:token/tables', page('tables.html'));
   app.get('/i/:token', page('invite.html'));
   app.get('/e/:token', page('event.html'));
@@ -39,8 +39,14 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
   const p = express.Router({ mergeParams: true });
   p.use((req, _res, next) => {
     req.ev = store.eventByPlannerToken(req.params.token);
+    req.who = 'planner';
     next(req.ev ? undefined : new HttpError(404, 'Event not found'));
   });
+
+  // vendors who could fill a role, from the planner's history and the vendor directory
+  p.get('/vendors/:id/matches', wrap(async (req, res) => {
+    res.json(await matching.match(req.ev, store.vendorIn(req.ev.id, num(req)), req.query.need));
+  }));
 
   p.patch('/settings', wrap(async (req, res) => {
     const b = req.body || {};
@@ -174,6 +180,25 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
       changed(req.ev.id, 'guests');
     });
 
+    // after the event: how it went, and thank-yous to guests, vendors and the couple
+    r.get('/recap', (req, res) => res.json({ ...recap.summary(req.ev), who: req.who }));
+    r.post('/recap/draft', wrap(async (req, res) => {
+      if (!recap.summary(req.ev).open) throw new HttpError(400, 'The recap opens on the day of the event');
+      res.json(await recap.draft(req.ev, req.who));
+    }));
+    r.post('/recap/thanks/send', wrap(async (req, res) => {
+      if (!recap.summary(req.ev).open) throw new HttpError(400, 'The recap opens on the day of the event');
+      const out = await recap.sendThanks(req.ev, req.body?.text, { resend: Boolean(req.body?.resend) });
+      if (out.sent) store.log(req.ev.id, 'change', `Thanked ${out.sent} guests on WhatsApp`);
+      res.json(out);
+      changed(req.ev.id, 'recap');
+    }));
+    r.post('/recap/thanks/:id/sent', (req, res) => {
+      recap.markThanked(req.ev.id, num(req));
+      res.json({ ok: true });
+      changed(req.ev.id, 'recap');
+    });
+
     // what guests see and the bot knows, plus RSVP and aso-ebi settings
     r.patch('/guest-settings', (req, res) => {
       const b = req.body || {};
@@ -271,6 +296,7 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
   const c = express.Router({ mergeParams: true });
   c.use((req, _res, next) => {
     req.ev = store.db.prepare('SELECT * FROM events WHERE couple_token = ?').get(req.params.token);
+    req.who = 'couple';
     next(req.ev ? undefined : new HttpError(404, 'Link not found'));
   });
   ownerRoutes(c);

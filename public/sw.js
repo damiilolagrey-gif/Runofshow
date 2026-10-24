@@ -1,5 +1,5 @@
 // App shell cache so vendor pages open with no signal, plus push notifications.
-const CACHE = 'ros-v5';
+const CACHE = 'ros-v6';
 const SHELL = [
   '/', '/index.html', '/planner.html', '/vendor.html', '/css/app.css',
   '/invite.html', '/gate.html', '/js/time.js', '/js/common.js', '/js/planner.js', '/js/vendor.js', '/vendor/jsqr.js',

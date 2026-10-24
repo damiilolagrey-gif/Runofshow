@@ -75,6 +75,17 @@ when you have Meta Cloud API access.
   timeline, a checklist and a budget split in naira, plus a note for guests. Nothing is saved until
   they tap "Create this event". Uses Claude when `ANTHROPIC_API_KEY` is set; otherwise it starts from
   the event type's template and splits the budget it finds in the description.
+- **Vendor matching** (planner, Vendors, "Find a match"): suggests vendors for a role from the
+  planner's own past events and from vendors who chose "List me for other planners" on their
+  page, ranked by the couples' verified reviews. Role names that mean the same job match ("MC",
+  "Compere", "Hype man"). A note like "speaks Yoruba" is matched against what couples wrote: by
+  Claude when `ANTHROPIC_API_KEY` is set, otherwise by shared words. Phone numbers are only shown
+  for vendors the planner worked with or who listed themselves.
+- **Recap** (planner and couple, "Recap" tab, from the event day): how the day went, and
+  thank-you messages for the guests, each vendor and (from the planner) the couple, built from the
+  timeline and the reviews. Claude writes them when `ANTHROPIC_API_KEY` is set; otherwise warm
+  templates. Guests who were scanned in (or who said yes, if the gate wasn't used) are thanked on
+  WhatsApp by first name; vendors and the couple get a ready WhatsApp message.
 - **Accounts and plans** (`/signup`, `/dashboard`, `/pricing`): planners sign up, see all
   their events and pay through Paystack. Starter is free (1 upcoming event, 150 guests per
   event), Pro and Business are monthly or yearly subscriptions, and any single event can be
@@ -102,5 +113,5 @@ test/           node:test API and socket tests
 
 ## Not in the MVP yet
 
-Seating charts, password reset by email, planner teams and logos, venues with multiple planners, editing templates in the UI,
+Password reset by email, planner teams and logos, venues with multiple planners, editing templates in the UI,
 SMS fallback, and multi-day events.

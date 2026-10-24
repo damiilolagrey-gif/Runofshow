@@ -22,6 +22,9 @@ const { Assistant } = require('./assistant');
 const { Seating } = require('./seating');
 const { GuestComms } = require('./guestcomms');
 const { PlanAssistant, normalize: normalizePlan } = require('./planai');
+const { Matching } = require('./matching');
+const { Recap } = require('./recap');
+const { clientFor } = require('./claude');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
@@ -46,7 +49,7 @@ function whatsappConfig() {
 }
 
 function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://localhost:3000', vapid = loadVapid(dataDir), whatsapp = whatsappConfig(),
-  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl, assistant = new Assistant(), planner: planAssistant = new PlanAssistant(), tickEvery = 60_000 } = {}) {
+  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl, assistant = new Assistant(), planner: planAssistant = new PlanAssistant(), aiClient = clientFor(), tickEvery = 60_000 } = {}) {
   const store = new Store(openDb(dbFile));
   const guests = new Guests(store);
   const asoebi = new AsoEbi(store);
@@ -58,6 +61,8 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   const wa = whatsapp ? new WhatsApp(whatsapp, fetchImpl) : null;
   const notifier = new Notifier(store, { vapid, whatsapp: wa, baseUrl });
   const seating = new Seating(store, guests);
+  const matching = new Matching(store, { client: aiClient });
+  const recap = new Recap({ store, guests, reviews, accounts, whatsapp: wa, baseUrl, client: aiClient });
   const app = express();
   const server = http.createServer(app);
   const io = new Server(server);
@@ -117,6 +122,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
         review: review && { rating: review.rating, body: review.body, reviewer: review.reviewer, url: `/review/${review.token}` },
         profile_url: slug && `/pro/${slug}`,
       },
+      listing: { ...matching.listing(v.phone), has_phone: Boolean(v.phone) },
     };
   };
 
@@ -273,6 +279,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     await afterChange(req.vendor.event_id);
     io.to(`couple:${req.vendor.event_id}`).emit('changed', 'reviews');
   }));
+  vendorApi.post('/listing', (req, res) => res.json(matching.setListing(req.vendor, req.body || {})));
   vendorApi.post('/checkin', wrap(async (req, res) => {
     store.checkIn(req.vendor);
     res.json({ ok: true });
@@ -293,7 +300,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   app.use('/api/v/:token', vendorApi);
 
   mountShowcase(app, { reviews });
-  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, io, broadcast: async (eventId) => broadcast(eventId) });
+  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, matching, recap, io, broadcast: async (eventId) => broadcast(eventId) });
 
   app.use((err, _req, res, _next) => {
     const status = err.status || (err.type === 'entity.parse.failed' ? 400 : 500);
@@ -308,7 +315,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     server.on('close', () => clearInterval(timer));
   }
 
-  return { app, server, io, store, notifier, guests, asoebi, finance, accounts, progress, reviews, seating, comms };
+  return { app, server, io, store, notifier, guests, asoebi, finance, accounts, progress, reviews, seating, comms, matching, recap };
 }
 
 module.exports = { createApp };
