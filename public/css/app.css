@@ -395,3 +395,6 @@ dialog.wide { width: min(680px, calc(100vw - 32px)); }
 .unseated li { display: grid; grid-template-columns: minmax(0, 1fr) 120px; gap: 8px; align-items: center; }
 .unseated select { min-height: 36px; padding: 4px 8px; }
 .table-card select.move { flex: 0 0 92px; width: 92px; min-height: 28px; padding: 0 4px; font-size: .8rem; }
+.bordered-list { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+#draft-cues { max-height: 520px; overflow: auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }

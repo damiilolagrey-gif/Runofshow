@@ -85,6 +85,66 @@
     }
   });
 
+  // ---------- planning assistant ----------
+
+  let draft = null;
+  const draftInput = () => ({ ...Object.fromEntries(new FormData(form)) });
+  Ros.api('GET', '/api/events/draft').then(({ ai }) => {
+    if (!ai) $('brief-help').textContent = 'Drafts from the template for now, with a budget split if you give a total. Full AI drafting switches on once the Claude API key is added.';
+  }).catch(() => {});
+
+  async function makeDraft() {
+    if (!form.reportValidity()) return;
+    if (!form.brief.value.trim()) { Ros.toast('Describe the event first, or create it from the template'); form.brief.focus(); return; }
+    for (const b of [$('draft'), $('draft-again')]) { b.disabled = true; }
+    $('draft').textContent = '✨ Drafting… this can take a minute';
+    try {
+      draft = await Ros.api('POST', '/api/events/draft', draftInput());
+      renderDraft();
+      $('draft-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (err) { Ros.toast(err.message); }
+    finally {
+      for (const b of [$('draft'), $('draft-again')]) { b.disabled = false; }
+      $('draft').textContent = '✨ Draft the plan';
+    }
+  }
+
+  function renderDraft() {
+    const d = draft;
+    const f = draftInput();
+    $('draft-card').classList.remove('hidden');
+    $('draft-source').textContent = d.source === 'ai' ? 'Drafted by AI' : 'From template';
+    $('draft-head').innerHTML = `<div style="font-size:1.2rem;font-weight:800">${Ros.esc(f.name)}</div>
+      <div class="muted small">${Ros.fmtDate(f.date)}${f.venue ? ` · ${Ros.esc(f.venue)}` : ''}</div>${d.summary ? `<p style="margin:8px 0 0">${Ros.esc(d.summary)}</p>` : ''}`;
+    const total = d.budget.reduce((s, l) => s + l.naira, 0);
+    $('draft-stats').innerHTML = [[d.cues.length, 'Cues on the day'], [d.vendors.length, 'Vendors to book'], [d.checklist.length, 'Checklist items'], [total ? Ros.naira(total * 100) : '–', d.guest_count ? `Budget · ${d.guest_count} guests` : 'Budget']]
+      .map(([n, l]) => `<div class="card stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+    $('draft-cues').innerHTML = d.cues.map((c) => `<li class="cue" style="grid-template-columns:70px minmax(0,1fr)"><div class="time">${Ros.fmt(c.start_min)}<span class="dur">${c.duration} min</span></div>
+      <div class="what"><div class="t">${Ros.esc(c.title)}</div><div class="chips">${c.roles.map((r) => `<span class="chip">${Ros.esc(r)}</span>`).join('')}</div></div></li>`).join('');
+    $('draft-vendors').innerHTML = d.vendors.map((v) => `<span class="chip">${Ros.esc(v.role)}${v.name !== v.role ? ` · ${Ros.esc(v.name)}` : ''}</span>`).join('');
+    $('draft-budget').innerHTML = d.budget.map((l) => `<tr><td>${Ros.esc(l.category)}</td><td class="num">${Ros.naira(l.naira * 100)}</td></tr>`).join('')
+      || '<tr><td class="muted">Give a total budget in the description to get a split.</td></tr>';
+    const cats = new Map();
+    for (const c of d.checklist) cats.set(c.category, (cats.get(c.category) || 0) + 1);
+    $('draft-checklist').innerHTML = [...cats].map(([c, n]) => `<li><span class="grow">${Ros.esc(c)}</span><span class="count">${n} item${n === 1 ? '' : 's'}</span></li>`).join('');
+    $('draft-info').innerHTML = d.guest_info ? `<h3 class="small muted" style="text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">For guests</h3><div class="small" style="white-space:pre-wrap">${Ros.esc(d.guest_info)}</div>` : '';
+  }
+
+  $('draft').addEventListener('click', makeDraft);
+  $('draft-again').addEventListener('click', makeDraft);
+  $('draft-discard').addEventListener('click', () => { draft = null; $('draft-card').classList.add('hidden'); });
+  $('draft-create').addEventListener('click', async () => {
+    $('draft-create').disabled = true;
+    try {
+      const { planner_url } = await Ros.api('POST', '/api/events', { ...draftInput(), plan: draft });
+      location.href = planner_url;
+    } catch (err) {
+      Ros.toast(err.message);
+      if (err.status === 402) $('plan-picker').classList.remove('hidden');
+      $('draft-create').disabled = false;
+    }
+  });
+
   $('claim').addEventListener('submit', async (e) => {
     e.preventDefault();
     try { const r = await Ros.api('POST', '/api/account/claim', { link: e.target.link.value }); Ros.toast(`Added ${r.name}`); e.target.reset(); load(); }

@@ -70,6 +70,11 @@ when you have Meta Cloud API access.
 - **Vendor reviews**: from the event day, a vendor taps "Ask the couple for a review" and the
   couple rates them from their private page. The vendor shares the verified card at
   `/review/<token>`, and `/pro/<slug>` collects every review for the same phone number.
+- **Planning assistant** (dashboard, "Describe the event"): a planner writes a few lines ("300
+  guests, ₦15m, church at 10am, live band") and gets a draft to review: vendors to book, the day's
+  timeline, a checklist and a budget split in naira, plus a note for guests. Nothing is saved until
+  they tap "Create this event". Uses Claude when `ANTHROPIC_API_KEY` is set; otherwise it starts from
+  the event type's template and splits the budget it finds in the description.
 - **Accounts and plans** (`/signup`, `/dashboard`, `/pricing`): planners sign up, see all
   their events and pay through Paystack. Starter is free (1 upcoming event, 150 guests per
   event), Pro and Business are monthly or yearly subscriptions, and any single event can be

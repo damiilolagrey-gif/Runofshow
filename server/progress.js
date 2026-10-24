@@ -64,9 +64,9 @@ class Progress {
     this.db.prepare('DELETE FROM checklist WHERE id = ?').run(id);
   }
 
-  // Adds the event type's starter checklist, linking items to this event's vendors by role.
-  seed(eventId, type) {
-    const tpl = templates[type] || templates['ng-wedding'];
+  // Adds the event type's starter checklist (or the given items), linking items to this event's vendors by role.
+  seed(eventId, type, items = null) {
+    const tpl = items ? { checklist: items } : templates[type] || templates['ng-wedding'];
     const byRole = {};
     for (const v of this.store.vendors(eventId)) byRole[v.role] ??= v.id;
     const insert = this.db.prepare('INSERT INTO checklist (event_id, category, title, vendor_id, sort) VALUES (?, ?, ?, ?, ?)');
