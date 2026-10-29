@@ -211,6 +211,20 @@ function openDb(file) {
       listed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
     );
 
+    -- Photos and short videos guests send from the QR code; the files live on disk under DATA_DIR/moments.
+    CREATE TABLE IF NOT EXISTS moments (
+      id         INTEGER PRIMARY KEY,
+      event_id   INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+      kind       TEXT NOT NULL,             -- photo | video
+      mime       TEXT NOT NULL,
+      file       TEXT NOT NULL,             -- name inside the event's folder
+      bytes      INTEGER NOT NULL,
+      guest_name TEXT NOT NULL DEFAULT '',
+      hidden     INTEGER NOT NULL DEFAULT 0, -- hidden by the hosts: off the wall and out of the recap
+      created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+    );
+    CREATE INDEX IF NOT EXISTS moments_event ON moments(event_id, id);
+
     -- WhatsApp retries webhooks, so each incoming message id is handled once.
     CREATE TABLE IF NOT EXISTS wa_inbound (id TEXT PRIMARY KEY, at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')));
 
@@ -257,6 +271,9 @@ function migrate(db) {
     ['passes_auto', 'INTEGER NOT NULL DEFAULT 1'],  // send table numbers and QR passes on the morning of the event
     ['passes_time', "TEXT NOT NULL DEFAULT '09:00'"],
     ['passes_sent_at', 'TEXT'],
+    ['moments_token', 'TEXT'],  // guests' photo and video upload link (QR code)
+    ['wall_token', 'TEXT'],     // the live photo wall on a TV
+    ['moments_open', 'INTEGER NOT NULL DEFAULT 1'],
   ]);
   addColumns('guests', [
     ['invited_at', 'TEXT'],
@@ -275,6 +292,8 @@ function migrate(db) {
     CREATE UNIQUE INDEX IF NOT EXISTS events_public ON events(public_token);
     CREATE UNIQUE INDEX IF NOT EXISTS events_gate ON events(gate_token);
     CREATE UNIQUE INDEX IF NOT EXISTS events_couple ON events(couple_token);
+    CREATE UNIQUE INDEX IF NOT EXISTS events_moments ON events(moments_token);
+    CREATE UNIQUE INDEX IF NOT EXISTS events_wall ON events(wall_token);
   `);
 }
 

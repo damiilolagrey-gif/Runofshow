@@ -411,3 +411,51 @@ dialog.wide { width: min(680px, calc(100vw - 32px)); }
 .thanks { display: grid; gap: 12px; }
 .thanks textarea { width: 100%; min-height: 128px; }
 .thanks .who { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+
+/* guests' photos & videos: the share page */
+.share-buttons { display: grid; gap: 10px; }
+.share-buttons label { cursor: pointer; }
+.share-sent { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.share-sent li { display: flex; gap: 12px; align-items: center; }
+.share-sent img, .share-sent video { width: 56px; height: 56px; object-fit: cover; border-radius: 10px; background: var(--line); flex: none; }
+.share-sent .bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-bottom: 4px; }
+.share-sent .bar span { display: block; height: 100%; width: 0; background: var(--brand); transition: width .2s; }
+.share-sent li.done .bar span { background: var(--ok); }
+.share-sent .status.neg { color: var(--late); }
+
+/* the hosts' album */
+.moments-share { display: grid; grid-template-columns: auto 1fr; gap: 20px; align-items: center; }
+.moments-share .qr { width: 180px; margin: 0; }
+@media (max-width: 640px) { .moments-share { grid-template-columns: 1fr; } .moments-share .qr { margin: 0 auto; } }
+.moments-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+@media (max-width: 480px) { .moments-grid { grid-template-columns: repeat(3, 1fr); gap: 4px; } }
+.moment { position: relative; aspect-ratio: 1; padding: 0; border: 0; border-radius: 10px; overflow: hidden; background: var(--line); cursor: pointer; }
+.moment img, .moment video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.moment.is-hidden img, .moment.is-hidden video { opacity: .4; }
+.moment-badge { position: absolute; top: 6px; left: 6px; font-size: .7rem; padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.6); color: #fff; }
+.moment-badge.hidden-badge { left: auto; right: 6px; }
+.moment-who { position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 6px 4px; font-size: .72rem; color: #fff; text-align: left; background: linear-gradient(transparent, rgba(0,0,0,.65)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+dialog.moments-view { width: min(760px, calc(100vw - 32px)); }
+.moments-view-media { background: #000; display: flex; justify-content: center; }
+.moments-view-media img, .moments-view-media video { max-width: 100%; max-height: 70vh; display: block; }
+
+/* the live wall on a TV */
+body.wall { margin: 0; height: 100vh; overflow: hidden; background: #0d0a10; color: #f5f0e8; display: grid; grid-template-columns: 1fr minmax(260px, 24vw); }
+.wall-stage { position: relative; overflow: hidden; }
+.wall-slide { position: absolute; inset: 0; margin: 0; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity .9s ease; }
+.wall-slide.in { opacity: 1; }
+.wall-slide img, .wall-slide video { max-width: 100%; max-height: 100%; object-fit: contain; }
+.wall-slide figcaption { position: absolute; left: 24px; bottom: 20px; padding: 6px 14px; border-radius: 999px; background: rgba(0,0,0,.55); font-size: 1.3rem; }
+.wall-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 40px; font-size: 2rem; color: #c9b8d6; }
+.wall-side { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px; background: linear-gradient(180deg, #2a1433, #5b2a6e); text-align: center; }
+.wall-names { font-size: 2.2rem; font-weight: 700; line-height: 1.15; }
+.wall-event { color: #e3cfee; }
+.wall-qr { width: 100%; max-width: 240px; background: #fff; padding: 12px; border-radius: 16px; }
+.wall-cta { font-size: 1.2rem; font-weight: 600; }
+.wall-count { color: #e0b25a; }
+.wall-fs { margin-top: 8px; }
+@media (max-width: 700px) { body.wall { grid-template-columns: 1fr; grid-template-rows: 1fr auto; } .wall-side { flex-direction: row; flex-wrap: wrap; padding: 14px; } .wall-qr { max-width: 110px; } .wall-names { font-size: 1.4rem; } }
+.share-sent .grow { flex: 1 1 0; min-width: 0; }
+.moments-open { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.moments-open input { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; }
+.moments-filters { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px 0; }
