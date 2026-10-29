@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live wall</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body class="wall">
+  <div class="wall-stage" id="stage"><div class="wall-empty" id="empty">Scan the code and your photos will show up here.</div></div>
+  <aside class="wall-side">
+    <div class="wall-names" id="names">Loading…</div>
+    <div class="wall-event" id="event"></div>
+    <img class="wall-qr" id="qr" alt="QR code to share photos">
+    <div class="wall-cta">Scan to share your photos and videos</div>
+    <div class="wall-count" id="count"></div>
+    <button class="btn sm wall-fs" id="fs" type="button">Full screen</button>
+  </aside>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/wall.js"></script>
+</body>
+</html>

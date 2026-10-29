@@ -6,8 +6,8 @@ const RosNav = (() => {
   const base = `/${mode}/${token}`;
   const api = `/api/${mode}/${token}`;
   const sections = {
-    p: [['', 'Timeline'], ['guests', 'Guests'], ['tables', 'Table plan'], ['asoebi', 'Aso-ebi'], ['money', 'Payments & budget'], ['progress', 'Couple’s progress'], ['recap', 'Recap']],
-    c: [['', 'Overview'], ['guests', 'Guests & RSVPs'], ['tables', 'Table plan'], ['asoebi', 'Aso-ebi'], ['recap', 'Recap']],
+    p: [['', 'Timeline'], ['guests', 'Guests'], ['tables', 'Table plan'], ['asoebi', 'Aso-ebi'], ['money', 'Payments & budget'], ['progress', 'Couple’s progress'], ['moments', 'Photos & videos'], ['recap', 'Recap']],
+    c: [['', 'Overview'], ['guests', 'Guests & RSVPs'], ['tables', 'Table plan'], ['asoebi', 'Aso-ebi'], ['moments', 'Photos & videos'], ['recap', 'Recap']],
     v: [['', '← My cues'], ['tables', 'Table plan']],
   }[mode];
 

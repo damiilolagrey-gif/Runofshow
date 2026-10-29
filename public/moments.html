@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Photos &amp; videos · Run of Show</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap">
+      <div class="title">
+        <h1 id="ev-name">Loading…</h1>
+        <div class="muted small" id="ev-sub"></div>
+      </div>
+      <nav class="sections" id="sections"></nav>
+    </div>
+  </header>
+  <main class="wrap stack">
+    <section class="stats">
+      <div class="card stat"><div class="n" id="s-photos">0</div><div class="l">Photos</div></div>
+      <div class="card stat"><div class="n" id="s-videos">0</div><div class="l">Videos</div></div>
+      <div class="card stat"><div class="n" id="s-guests">0</div><div class="l">Guests who shared</div></div>
+      <div class="card stat"><div class="n" id="s-space">0%</div><div class="l" id="s-space-l">Album space used</div></div>
+    </section>
+
+    <section class="card">
+      <div class="section-head">
+        <h2>Let guests share</h2>
+        <label class="moments-open small"><input type="checkbox" id="open"> Taking uploads</label>
+      </div>
+      <div class="card-pad moments-share">
+        <img class="qr" id="qr" alt="QR code guests scan to share photos">
+        <div class="stack">
+          <p style="margin:0">Guests scan this code, or open the link, and send photos and short videos from their phone’s browser. No app to download.</p>
+          <p class="muted small" style="margin:0">Print it on table cards, or put the live wall on a TV so the code is always on screen.</p>
+          <div class="row">
+            <a class="btn primary" id="wall" target="_blank" rel="noopener">📺 Open the live wall</a>
+            <button class="btn" id="copy" type="button">Copy link</button>
+            <a class="btn" id="wa" target="_blank" rel="noopener">Share on WhatsApp</a>
+            <a class="btn ghost" id="qr-dl" download="share-photos-qr.svg">Download QR</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="section-head"><h2>Album</h2></div>
+      <div class="moments-filters" id="filters">
+          <button class="btn sm" data-f="all" type="button">All</button>
+          <button class="btn sm ghost" data-f="photo" type="button">Photos</button>
+          <button class="btn sm ghost" data-f="video" type="button">Videos</button>
+          <button class="btn sm ghost" data-f="hidden" type="button">Hidden</button>
+      </div>
+      <p class="muted small" style="margin:10px 16px 0">Hidden ones stay in your album but don’t show on the wall.</p>
+      <div class="card-pad"><div class="moments-grid" id="grid"></div></div>
+    </section>
+  </main>
+
+  <dialog id="view-dlg" class="moments-view">
+    <div class="moments-view-media" id="view-media"></div>
+    <div class="row card-pad">
+      <span class="grow small" id="view-who"></span>
+      <button class="btn sm" id="view-hide" type="button">Hide from wall</button>
+      <a class="btn sm" id="view-dl">Download</a>
+      <button class="btn sm ghost danger" id="view-del" type="button">Delete</button>
+      <button class="btn sm ghost" id="view-close" type="button">Close</button>
+    </div>
+  </dialog>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/nav.js"></script>
+  <script src="/js/section.js"></script>
+  <script src="/js/moments.js"></script>
+</body>
+</html>

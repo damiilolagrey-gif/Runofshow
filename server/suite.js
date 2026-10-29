@@ -3,10 +3,11 @@ const path = require('node:path');
 const express = require('express');
 const QRCode = require('qrcode');
 const { HttpError, normalizePhone } = require('./store');
+const { publicMoment } = require('./moments');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
-function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, matching, recap, io, broadcast }) {
+function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, matching, recap, moments, io, broadcast }) {
   // Card payment for aso-ebi needs the event's planner to have a payout account, so the money reaches them.
   const payoutFor = (ev) => {
     const owner = ev.planner_id && accounts.get(ev.planner_id);
@@ -22,8 +23,10 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
     for (const room of [`planner:${eventId}`, `couple:${eventId}`, `gate:${eventId}`, `seating:${eventId}`]) io.to(room).emit('changed', topic);
   };
 
-  for (const section of ['guests', 'asoebi', 'money', 'progress', 'tables', 'recap']) app.get(`/p/:token/${section}`, page(`${section}.html`));
-  for (const section of ['guests', 'asoebi', 'tables', 'recap']) app.get(`/c/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'asoebi', 'money', 'progress', 'tables', 'recap', 'moments']) app.get(`/p/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'asoebi', 'tables', 'recap', 'moments']) app.get(`/c/:token/${section}`, page(`${section}.html`));
+  app.get('/m/:token', page('share.html'));
+  app.get('/wall/:token', page('wall.html'));
   app.get('/v/:token/tables', page('tables.html'));
   app.get('/i/:token', page('invite.html'));
   app.get('/e/:token', page('event.html'));
@@ -199,6 +202,39 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
       changed(req.ev.id, 'recap');
     });
 
+    // guests' photos and videos
+    const momentLinks = (req) => {
+      const t = moments.tokens(req.ev);
+      return { upload_url: `${origin(req)}/m/${t.moments_token}`, wall_url: `${origin(req)}/wall/${t.wall_token}` };
+    };
+    r.get('/moments', (req, res) => res.json({ items: moments.list(req.ev.id), stats: moments.stats(req.ev.id), open: Boolean(req.ev.moments_open), ...momentLinks(req) }));
+    r.get('/moments/qr.svg', wrap(async (req, res) => {
+      const svg = await QRCode.toString(momentLinks(req).upload_url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+      res.type('image/svg+xml').send(svg);
+    }));
+    r.get('/moments/:id/file', (req, res) => {
+      const m = moments.get(req.ev.id, num(req));
+      if (req.query.download) res.attachment(`${m.kind}-${m.id}${path.extname(m.file)}`);
+      res.type(m.mime).sendFile(moments.filePath(m), { maxAge: '1d' });
+    });
+    r.patch('/moments/:id', (req, res) => {
+      moments.setHidden(req.ev.id, num(req), Boolean(req.body?.hidden));
+      res.json({ ok: true });
+      changed(req.ev.id, 'moments');
+      io.to(`wall:${req.ev.id}`).emit('wall-changed');
+    });
+    r.delete('/moments/:id', (req, res) => {
+      moments.remove(req.ev.id, num(req));
+      res.json({ ok: true });
+      changed(req.ev.id, 'moments');
+      io.to(`wall:${req.ev.id}`).emit('wall-changed');
+    });
+    r.patch('/moments-settings', (req, res) => {
+      moments.setOpen(req.ev, Boolean(req.body?.open));
+      res.json({ ok: true });
+      changed(req.ev.id, 'moments');
+    });
+
     // what guests see and the bot knows, plus RSVP and aso-ebi settings
     r.patch('/guest-settings', (req, res) => {
       const b = req.body || {};
@@ -337,6 +373,44 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
     res.type('image/svg+xml').set('Cache-Control', 'private, max-age=86400').send(svg);
   }));
   app.use('/api/i/:token', invite);
+
+  // ---------- guests' photo and video uploads (the QR code at the party) ----------
+
+  const share = express.Router({ mergeParams: true });
+  share.use((req, _res, next) => {
+    req.ev = moments.byUploadToken(req.params.token);
+    next(req.ev ? undefined : new HttpError(404, 'This link is not valid'));
+  });
+  share.get('/', (req, res) => res.json({ event: publicEvent(req.ev), couple_names: req.ev.couple_names, open: Boolean(req.ev.moments_open), limits: { photo_mb: moments.limits.photo / 1048576, video_mb: moments.limits.video / 1048576 } }));
+  share.post('/upload', wrap(async (req, res) => {
+    const m = await moments.save(req.ev, req);
+    res.status(201).json({ id: m.id, kind: m.kind });
+    changed(req.ev.id, 'moments');
+    if (!m.hidden) io.to(`wall:${req.ev.id}`).emit('moment', publicMoment(m));
+  }));
+  app.use('/api/m/:token', share);
+
+  // ---------- the live wall on a TV ----------
+
+  const wall = express.Router({ mergeParams: true });
+  wall.use((req, _res, next) => {
+    req.ev = moments.byWallToken(req.params.token);
+    next(req.ev ? undefined : new HttpError(404, 'This wall link is not valid'));
+  });
+  wall.get('/', (req, res) => res.json({
+    event: publicEvent(req.ev), couple_names: req.ev.couple_names, upload_url: `${origin(req)}/m/${moments.tokens(req.ev).moments_token}`,
+    items: moments.list(req.ev.id, { visibleOnly: true }).slice(0, 300).map(publicMoment),
+  }));
+  wall.get('/qr.svg', wrap(async (req, res) => {
+    const svg = await QRCode.toString(`${origin(req)}/m/${moments.tokens(req.ev).moments_token}`, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' });
+    res.type('image/svg+xml').send(svg);
+  }));
+  wall.get('/file/:id', (req, res) => {
+    const m = moments.get(req.ev.id, num(req));
+    if (m.hidden) throw new HttpError(404, 'Not found');
+    res.type(m.mime).sendFile(moments.filePath(m), { maxAge: '1d' });
+  });
+  app.use('/api/wall/:token', wall);
 
   // ---------- public event page: open RSVP and aso-ebi shop ----------
 

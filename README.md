@@ -86,6 +86,14 @@ when you have Meta Cloud API access.
   timeline and the reviews. Claude writes them when `ANTHROPIC_API_KEY` is set; otherwise warm
   templates. Guests who were scanned in (or who said yes, if the gate wasn't used) are thanked on
   WhatsApp by first name; vendors and the couple get a ready WhatsApp message.
+- **Guests' photos and videos** (Photos & videos tab, `/m/<token>` for guests, `/wall/<token>`
+  for a TV): guests scan a QR code and send photos and short videos from the phone's browser, no
+  app. The planner and the couple see them in an album where they can hide, download or delete
+  each one, and close uploads. The live wall loops visible photos and videos full screen with the
+  QR code beside it, and new ones show up next as they arrive. Files are stored under
+  `DATA_DIR/moments`; each photo is capped at 12 MB, each video at 60 MB (about 30 seconds) and
+  each event's album at `MOMENTS_EVENT_MB` (800 by default). The 1 GB Render disk fills after a
+  couple of busy weddings, so grow the disk or move files to cloud storage before selling this.
 - **Accounts and plans** (`/signup`, `/dashboard`, `/pricing`): planners sign up, see all
   their events and pay through Paystack. Starter is free (1 upcoming event, 150 guests per
   event), Pro and Business are monthly or yearly subscriptions, and any single event can be

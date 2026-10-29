@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Share your moments</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#5b2a6e">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <main class="public-wrap stack">
+    <div class="head">
+      <div class="muted small" style="text-transform:uppercase;letter-spacing:.1em">Share your moments</div>
+      <h1 id="ev-name">Loading…</h1>
+      <div class="muted" id="ev-when"></div>
+    </div>
+    <section class="card card-pad stack" id="form">
+      <p style="margin:0">Send the couple your photos and short videos from today. They’ll go into their album, and the photos may show up on the big screen.</p>
+      <div class="field" style="margin:0"><label for="name">Your name</label><input id="name" maxlength="60" placeholder="So they know who sent it" autocomplete="name"></div>
+      <div class="share-buttons">
+        <label class="btn primary big"><input type="file" id="cam-photo" accept="image/*" capture="environment" hidden>📷 Take a photo</label>
+        <label class="btn primary big"><input type="file" id="cam-video" accept="video/*" capture="environment" hidden>🎥 Record a video</label>
+        <label class="btn big"><input type="file" id="pick" accept="image/*,video/*" multiple hidden>🖼️ Choose from my phone</label>
+      </div>
+      <p class="muted small" style="margin:0" id="limits"></p>
+    </section>
+    <section class="card card-pad hidden" id="closed"><strong>Uploads are closed.</strong> <span class="muted">The hosts aren’t taking new photos right now.</span></section>
+    <section class="card card-pad stack hidden" id="sent-card">
+      <div class="row"><strong class="grow" id="sent-title">Sent</strong></div>
+      <ul class="share-sent" id="sent"></ul>
+    </section>
+  </main>
+  <script src="/js/time.js"></script>
+  <script src="/js/common.js"></script>
+  <script src="/js/share.js"></script>
+</body>
+</html>

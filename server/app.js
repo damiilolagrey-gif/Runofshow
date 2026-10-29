@@ -25,6 +25,7 @@ const { PlanAssistant, normalize: normalizePlan } = require('./planai');
 const { Matching } = require('./matching');
 const { Recap } = require('./recap');
 const { clientFor } = require('./claude');
+const { Moments } = require('./moments');
 
 const PUBLIC = path.join(__dirname, '..', 'public');
 
@@ -49,7 +50,7 @@ function whatsappConfig() {
 }
 
 function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://localhost:3000', vapid = loadVapid(dataDir), whatsapp = whatsappConfig(),
-  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl, assistant = new Assistant(), planner: planAssistant = new PlanAssistant(), aiClient = clientFor(), tickEvery = 60_000 } = {}) {
+  paystackKey = process.env.PAYSTACK_SECRET_KEY, enforceLimits, plans = planConfig(), fetchImpl, assistant = new Assistant(), planner: planAssistant = new PlanAssistant(), aiClient = clientFor(), momentsDir, momentsLimits = {}, tickEvery = 60_000 } = {}) {
   const store = new Store(openDb(dbFile));
   const guests = new Guests(store);
   const asoebi = new AsoEbi(store);
@@ -62,6 +63,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   const notifier = new Notifier(store, { vapid, whatsapp: wa, baseUrl });
   const seating = new Seating(store, guests);
   const matching = new Matching(store, { client: aiClient });
+  const moments = new Moments(store, { dir: momentsDir || (dataDir ? path.join(dataDir, 'moments') : path.join(require('node:os').tmpdir(), `ros-moments-${process.pid}`)), ...momentsLimits });
   const recap = new Recap({ store, guests, reviews, accounts, whatsapp: wa, baseUrl, client: aiClient });
   const app = express();
   const server = http.createServer(app);
@@ -149,6 +151,10 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
       socket.join(`vendor:${v.id}`);
       if (v.can_seat) socket.join(`seating:${v.event_id}`);
       socket.emit('state', vendorView(v.id));
+    } else if (socket.handshake.auth?.wall) {
+      const ev = moments.byWallToken(socket.handshake.auth.wall);
+      if (!ev) return socket.disconnect(true);
+      socket.join(`wall:${ev.id}`);
     } else if (socket.handshake.auth?.couple || socket.handshake.auth?.gate) {
       const { couple, gate } = socket.handshake.auth;
       const ev = store.db.prepare(`SELECT id FROM events WHERE ${couple ? 'couple_token' : 'gate_token'} = ?`).get(couple || gate);
@@ -300,7 +306,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
   app.use('/api/v/:token', vendorApi);
 
   mountShowcase(app, { reviews });
-  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, matching, recap, io, broadcast: async (eventId) => broadcast(eventId) });
+  mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, progress, reviews, seating, comms, assistant, matching, recap, moments, io, broadcast: async (eventId) => broadcast(eventId) });
 
   app.use((err, _req, res, _next) => {
     const status = err.status || (err.type === 'entity.parse.failed' ? 400 : 500);
@@ -315,7 +321,7 @@ function createApp({ dbFile = ':memory:', dataDir = null, baseUrl = 'http://loca
     server.on('close', () => clearInterval(timer));
   }
 
-  return { app, server, io, store, notifier, guests, asoebi, finance, accounts, progress, reviews, seating, comms, matching, recap };
+  return { app, server, io, store, notifier, guests, asoebi, finance, accounts, progress, reviews, seating, comms, matching, recap, moments };
 }
 
 module.exports = { createApp };
