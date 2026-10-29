@@ -263,6 +263,11 @@ function migrate(db) {
     ['pass_sent_at', 'TEXT'],
     ['invited_party', 'INTEGER'], // party size on the invite, kept when the guest RSVPs for fewer
     ['thanked_at', 'TEXT'],       // thank-you message sent after the event
+    ['chat_read_at', 'TEXT'],     // the hosts last opened this guest's WhatsApp chat
+    ['bot_paused', 'INTEGER NOT NULL DEFAULT 0'], // the hosts are replying themselves, so the RSVP assistant stays quiet
+  ]);
+  addColumns('guest_messages', [
+    ['sender', "TEXT NOT NULL DEFAULT ''"], // out messages: '' automatic (assistant, invites, passes), 'host' typed by the couple or planner
   ]);
   addColumns('vendors', [
     ['can_seat', 'INTEGER NOT NULL DEFAULT 0'], // may see the guest list and edit the table plan

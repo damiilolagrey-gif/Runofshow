@@ -411,3 +411,37 @@ dialog.wide { width: min(680px, calc(100vw - 32px)); }
 .thanks { display: grid; gap: 12px; }
 .thanks textarea { width: 100%; min-height: 128px; }
 .thanks .who { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+
+/* WhatsApp-style inbox */
+.inbox { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 190px); min-height: 460px; overflow: hidden; padding: 0; }
+.inbox-list { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.inbox-search { padding: 10px; border-bottom: 1px solid var(--line); }
+.inbox-search input { width: 100%; }
+.inbox-list ul { list-style: none; margin: 0; padding: 0; overflow: auto; flex: 1; }
+.inbox-list li button { all: unset; box-sizing: border-box; display: flex; gap: 10px; align-items: center; width: 100%; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid var(--line); }
+.inbox-list li button:hover, .inbox-list li button.on { background: var(--surface-2); }
+.inbox-list li button:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+.inbox-list .avatar { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--brand); color: var(--brand-ink); font-weight: 700; font-size: .85rem; }
+.inbox-list .grow { min-width: 0; }
+.inbox-list .top, .inbox-list .bottom { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.inbox-list .top time { font-size: .72rem; color: var(--muted); flex: none; }
+.inbox-list .preview { font-size: .85rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.inbox-list .badge { flex: none; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--ok); color: #fff; font-size: .72rem; font-weight: 700; display: grid; place-items: center; }
+.inbox-sep { padding: 10px 12px 6px; font-size: .78rem; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.inbox-chat { display: flex; flex-direction: column; min-height: 0; background: var(--surface-2); }
+.inbox-empty { flex: 1; display: grid; place-items: center; padding: 24px; text-align: center; }
+.inbox-open { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.inbox-open.hidden, .inbox-empty.hidden { display: none; }
+.inbox-head { display: flex; gap: 10px; align-items: center; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.inbox-head .back { display: none; }
+.inbox-msgs { flex: 1; max-height: none; padding: 14px; }
+.inbox-reply { display: flex; gap: 8px; padding: 10px; background: var(--surface); border-top: 1px solid var(--line); align-items: flex-end; }
+.inbox-reply textarea { flex: 1; resize: none; min-height: 42px; max-height: 140px; field-sizing: content; }
+.inbox-note { margin: 0; padding: 0 12px 10px; background: var(--surface); }
+@media (max-width: 720px) {
+  .inbox { grid-template-columns: 1fr; height: calc(100vh - 170px); }
+  .inbox.chatting .inbox-list { display: none; }
+  .inbox:not(.chatting) .inbox-chat { display: none; }
+  .inbox-list { border-right: 0; }
+  .inbox-head .back { display: inline-flex; }
+}

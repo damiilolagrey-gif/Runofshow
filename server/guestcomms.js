@@ -1,6 +1,8 @@
 // WhatsApp with guests: invites, the RSVP bot that reads their replies, and passes on the day
 // (table number plus the QR link they show at the gate).
 
+const { HttpError } = require('./store');
+
 const TZ = process.env.EVENT_TIMEZONE || 'Africa/Lagos';
 
 // Today's date and the time of day where the events happen, e.g. { date: '2026-11-14', time: '09:05' }.
@@ -34,12 +36,57 @@ class GuestComms {
     return `Hi ${g.name}, today is ${event.name}! ${seat} Show the QR code at this link at the gate (admits ${g.party_size}):\n${this.baseUrl}/i/${g.token}`;
   }
 
-  log(eventId, guestId, direction, body) {
-    this.db.prepare('INSERT INTO guest_messages (event_id, guest_id, direction, body) VALUES (?, ?, ?, ?)').run(eventId, guestId, direction, body);
+  log(eventId, guestId, direction, body, sender = '') {
+    this.db.prepare('INSERT INTO guest_messages (event_id, guest_id, direction, body, sender) VALUES (?, ?, ?, ?, ?)').run(eventId, guestId, direction, body, sender);
   }
 
   messages(eventId, guestId) {
-    return this.db.prepare('SELECT direction, body, at FROM guest_messages WHERE event_id = ? AND guest_id = ? ORDER BY id').all(eventId, guestId);
+    return this.db.prepare('SELECT direction, body, at, sender FROM guest_messages WHERE event_id = ? AND guest_id = ? ORDER BY id').all(eventId, guestId);
+  }
+
+  // ---- the hosts' inbox: every guest chat, newest first ----
+
+  conversations(eventId) {
+    return this.db.prepare(`SELECT g.id, g.name, g.phone, g.rsvp, g.party_size, g.table_label, g.bot_paused,
+        m.body AS last_body, m.direction AS last_direction, m.at AS last_at,
+        (SELECT COUNT(*) FROM guest_messages u WHERE u.guest_id = g.id AND u.direction = 'in' AND (g.chat_read_at IS NULL OR u.at > g.chat_read_at)) AS unread
+      FROM guests g JOIN guest_messages m ON m.id = (SELECT MAX(id) FROM guest_messages WHERE guest_id = g.id)
+      WHERE g.event_id = ? ORDER BY m.id DESC`).all(eventId);
+  }
+
+  openChat(eventId, guestId) {
+    const g = this.guests.in(eventId, Number(guestId));
+    this.db.prepare('UPDATE guests SET chat_read_at = ? WHERE id = ?').run(new Date().toISOString(), g.id);
+    const { id, name, phone, rsvp, party_size, table_label, bot_paused } = g;
+    return { guest: { id, name, phone, rsvp, party_size, table_label, bot_paused: Boolean(bot_paused) }, messages: this.messages(eventId, g.id), window_open: this.windowOpen(g.id) };
+  }
+
+  // WhatsApp lets a business reply freely for 24 hours after the guest last wrote; after that only a template can start a chat.
+  windowOpen(guestId, now = Date.now()) {
+    const last = this.db.prepare("SELECT MAX(at) AS at FROM guest_messages WHERE guest_id = ? AND direction = 'in'").get(guestId).at;
+    return Boolean(last) && now - Date.parse(last) < 24 * 3600 * 1000;
+  }
+
+  setBotPaused(eventId, guestId, paused) {
+    const g = this.guests.in(eventId, Number(guestId));
+    this.db.prepare('UPDATE guests SET bot_paused = ? WHERE id = ?').run(paused ? 1 : 0, g.id);
+  }
+
+  // A message the couple or planner types. Without a WhatsApp Business number it is logged and sent from their own phone.
+  async sendFromHost(event, guestId, text) {
+    const g = this.guests.in(event.id, Number(guestId));
+    const body = String(text || '').trim().slice(0, 2000);
+    if (!body) throw new HttpError(400, 'Type a message first');
+    if (!g.phone) throw new HttpError(400, `Add ${g.name}'s WhatsApp number first`);
+    if (!this.whatsapp) {
+      this.log(event.id, g.id, 'out', body, 'host');
+      return { sent: false, manual: true, wa_url: `https://wa.me/${g.phone}?text=${encodeURIComponent(body)}` };
+    }
+    const ok = this.windowOpen(g.id) ? await this.whatsapp.sendText(g.phone, body) : await this.whatsapp.send(g.phone, body);
+    if (!ok) throw new HttpError(502, 'WhatsApp did not accept the message. Try again in a moment.');
+    this.log(event.id, g.id, 'out', body, 'host');
+    this.onChange(event.id, 'inbox');
+    return { sent: true, manual: false };
   }
 
   // Latest message per guest, for the "Replies" list.
@@ -156,6 +203,10 @@ class GuestComms {
     }
     const history = this.messages(event.id, guest.id).slice(-6);
     this.log(event.id, guest.id, 'in', text);
+    if (guest.bot_paused) { // the hosts are handling this chat themselves
+      this.onChange(event.id, 'inbox');
+      return;
+    }
 
     const out = await this.assistant.read({ event, guest, text, history });
     let reply = out.reply;
@@ -173,6 +224,7 @@ class GuestComms {
     }
     await this.reply(event, guest, reply);
     this.onChange(event.id, 'guests');
+    this.onChange(event.id, 'inbox');
   }
 
   async reply(event, guest, text) {

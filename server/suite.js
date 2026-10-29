@@ -22,8 +22,8 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
     for (const room of [`planner:${eventId}`, `couple:${eventId}`, `gate:${eventId}`, `seating:${eventId}`]) io.to(room).emit('changed', topic);
   };
 
-  for (const section of ['guests', 'asoebi', 'money', 'progress', 'tables', 'recap']) app.get(`/p/:token/${section}`, page(`${section}.html`));
-  for (const section of ['guests', 'asoebi', 'tables', 'recap']) app.get(`/c/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'inbox', 'asoebi', 'money', 'progress', 'tables', 'recap']) app.get(`/p/:token/${section}`, page(`${section}.html`));
+  for (const section of ['guests', 'inbox', 'asoebi', 'tables', 'recap']) app.get(`/c/:token/${section}`, page(`${section}.html`));
   app.get('/v/:token/tables', page('tables.html'));
   app.get('/i/:token', page('invite.html'));
   app.get('/e/:token', page('event.html'));
@@ -167,6 +167,20 @@ function mountSuite(app, { store, guests, asoebi, finance, paystack, accounts, p
       changed(req.ev.id, 'guests');
     });
     r.get('/guests/:id/messages', (req, res) => res.json(comms.messages(req.ev.id, guests.in(req.ev.id, num(req)).id)));
+
+    // the WhatsApp inbox: every guest chat, and replies typed by the couple or planner
+    r.get('/inbox', (req, res) => res.json({ conversations: comms.conversations(req.ev.id), whatsapp: Boolean(comms.whatsapp), ai: assistant.usesAI }));
+    r.get('/inbox/:id', (req, res) => res.json(comms.openChat(req.ev.id, num(req))));
+    r.post('/inbox/:id', wrap(async (req, res) => {
+      const out = await comms.sendFromHost(req.ev, num(req), req.body?.text);
+      res.status(201).json(out);
+      changed(req.ev.id, 'inbox');
+    }));
+    r.patch('/inbox/:id', (req, res) => {
+      comms.setBotPaused(req.ev.id, num(req), Boolean(req.body?.bot_paused));
+      res.json({ ok: true });
+      changed(req.ev.id, 'inbox');
+    });
 
     // passes on the day: table number and QR link
     r.get('/passes', (req, res) => {
